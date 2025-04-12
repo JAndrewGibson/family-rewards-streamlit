@@ -1,0 +1,22 @@
+{
+  "audrey chavez-jackson": {
+    "assign_1744432190_mission_FI": {
+      "type": "mission",
+      "template_id": "FINAL BOSS",
+      "assigned_by": "sara_summers",
+      "assigned_on": "2025-04-11T21:29:50.542252",
+      "status": "accepted",
+      "quest_instances": {},
+      "task_instances": {}
+    },
+    "assign_1744434428_mission_FI": {
+      "type": "mission",
+      "template_id": "FINAL BOSS",
+      "assigned_by": "sara_summers",
+      "assigned_on": "2025-04-11T22:07:08.568030",
+      "status": "declined",
+      "quest_instances": {},
+      "task_instances": {}
+    }
+  }
+}

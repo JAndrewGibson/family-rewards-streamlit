@@ -1,0 +1,62 @@
+{
+  "first_quest": {
+    "name": "Test quest!",
+    "description": "Alrighty!",
+    "emoji": "\u270c\ufe0f",
+    "tasks": [
+      {
+        "id": "dfas",
+        "description": "fdagead",
+        "points": 0,
+        "emoji": ""
+      },
+      {
+        "id": "gesf",
+        "description": "gagrads",
+        "points": 0,
+        "emoji": ""
+      }
+    ],
+    "completion_bonus_points": 100
+  },
+  "second": {
+    "name": "Test quest!",
+    "description": "Alrighty!",
+    "emoji": "\u270c\ufe0f",
+    "tasks": [
+      {
+        "id": "dfas",
+        "description": "fdagead",
+        "points": 0,
+        "emoji": ""
+      }
+    ],
+    "completion_bonus_points": 100
+  },
+  "second_quest": {
+    "name": "Testability!",
+    "description": "Alrighty!",
+    "emoji": "\ud83e\udd73",
+    "tasks": [
+      {
+        "id": "fdasfge",
+        "description": "feafdas",
+        "points": 0,
+        "emoji": ""
+      },
+      {
+        "id": "gesf",
+        "description": "gagrads",
+        "points": 0,
+        "emoji": ""
+      },
+      {
+        "id": "geragh",
+        "description": "fahgdsf",
+        "points": 0,
+        "emoji": ""
+      }
+    ],
+    "completion_bonus_points": 100
+  }
+}

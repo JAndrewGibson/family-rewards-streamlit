@@ -1,0 +1,53 @@
+credentials:
+  usernames:
+    # --- Parent Accounts ---
+    joseph_jackson: # Maybe use more descriptive usernames
+      email: josephchavezjackson@gmail.com
+      name: "Joseph Jackson"
+      password: "$2b$12$1CaowrDHUqWT1LlWkrIuquZA331s3H9sOFs6JtIl888joaS3.vTjG"
+      role: "parent"
+      children: # <-- Add this list
+        - audrey chavez-jackson  # List the usernames of Dad's kids
+        - samuel chavez-jackson
+    sara_summers:
+      email: 7inwhite@gmail.com
+      name: "Sara Summers"
+      password: "$2b$12$bJjLJMHeHRUcwf1bBg9yOOdOzJsryzdLZCWQU7tVDEYfPTDdbt92m"
+      role: "parent"
+      children: # <-- Add this list
+        - audrey chavez-jackson  # Mom can also be linked to the same kids
+        - samuel chavez-jackson
+
+    # --- Kid Accounts ---
+    audrey chavez-jackson: # Use descriptive usernames for kids too
+      email: kid1@example.com
+      name: "Audrey"
+      password: "$2b$12$yQnDeKvlwaWpVj8isf5WO..Laj./boEfw8gRZXp0Fhl9C6K.wk5gS"
+      role: "kid"
+      # No 'children' key needed for kids
+    samuel chavez-jackson:
+      email: kid2@example.com
+      name: "Samuel"
+      password: "$2b$12$DynyMj5v8E9gJCS/zYiDG.tMQdIEsW4e3L1TDztE/0ZDIN.3JTc/S"
+      role: "kid"
+
+    # --- Example: Another family unit (optional) ---
+    Andrew:
+      email: JoelAndrewGibson@gmail.com
+      name: "Master & Commander"
+      password: "$2b$12$sZY03kawgXpEXaoBvoF6xOV9CkvBVZmZ8FcSHht/5FTuIPGwqvWC."
+      role: "parent"
+      children:
+        - audrey chavez-jackson
+        - samuel chavez-jackson
+    kid3_charlie:
+      email: kid3@example.com
+      name: "Charlie"
+      password: "$2b$12$hashed_password_for_kid3"
+      role: "kid"
+cookie:
+  expiry_days: 30
+  key: "bagelator" # Use your existing key
+  name: "Family Rewards Site Cookie" # Use your existing name
+preauthorized:
+  emails: []

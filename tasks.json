@@ -1,0 +1,12 @@
+{
+  "task_1": {
+    "description": "Test",
+    "points": 10,
+    "emoji": "\ud83d\ude0e"
+  },
+  "task_2": {
+    "description": "Allrighty",
+    "points": 10,
+    "emoji": "\ud83e\udd14"
+  }
+}
