@@ -12,6 +12,38 @@ QUESTS_TEMPLATE_FILE = 'quests.json'
 MISSIONS_TEMPLATE_FILE = 'missions.json'
 ASSIGNED_QUESTS_FILE = 'assigned_quests.json'
 
+def load_points(filename):
+    """Loads points data from the JSON file."""
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            points_data = json.load(f)
+    except FileNotFoundError:
+        points_data = {} # Start empty if file doesn't exist
+        try: # Attempt to create the file
+            save_points({}, filename)
+            st.info(f"Created empty points file: {filename}")
+        except Exception as e:
+             st.warning(f"Could not create {filename}. Error: {e}")
+    except json.JSONDecodeError:
+        st.error(f"❌ **Error:** Could not parse points file `{filename}`.")
+        points_data = None
+    except Exception as e:
+        st.error(f"❌ **An unexpected error occurred loading points:** {e}")
+        points_data = None
+    return points_data
+
+def save_points(data, filename):
+    """Saves points data to the JSON file."""
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        return True
+    except IOError as e:
+        st.error(f"❌ Error saving points to `{filename}`: Check permissions. Details: {e}")
+        return False
+    except Exception as e:
+        st.error(f"❌ An unexpected error occurred saving points: {e}")
+        return False
 
 def calculate_item_status(item_id, item_type, mission_template, mission_assignment_data):
     """

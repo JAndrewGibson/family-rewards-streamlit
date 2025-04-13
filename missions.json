@@ -1,1 +1,29 @@
-{}
+{
+  "rock_climber_1": {
+    "name": "Rock Climbing Novice!",
+    "description": "You can do it!",
+    "emoji": "",
+    "contains_quests": [
+      "100_pushups",
+      "15_pullups",
+      "splits_training"
+    ],
+    "contains_tasks": [
+      "Do the splits!"
+    ],
+    "prerequisites": {
+      "100_pushups": [],
+      "15_pullups": [
+        "100_pushups"
+      ],
+      "splits_training": [],
+      "Do the splits!": [
+        "splits_training"
+      ]
+    },
+    "completion_reward": {
+      "points": 100,
+      "description": ""
+    }
+  }
+}

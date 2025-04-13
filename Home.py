@@ -12,6 +12,7 @@ TASKS_TEMPLATE_FILE = 'tasks.json'
 QUESTS_TEMPLATE_FILE = 'quests.json'
 MISSIONS_TEMPLATE_FILE = 'missions.json'
 ASSIGNMENTS_FILE = 'assignments.json'
+POINTS_FILE = 'points.json'
 
 # --- Perform Authentication ---
 # This handles login UI and sets 'config', 'authenticator', 'role', 'name', 'username' in session_state
@@ -28,6 +29,16 @@ if authentication_status:
 
     if 'mission_templates' not in st.session_state:
          st.session_state['mission_templates'] = utils.load_mission_templates(MISSIONS_TEMPLATE_FILE)
+    if 'points' not in st.session_state:
+        st.session_state['points'] = utils.load_points(POINTS_FILE)
+
+    if st.session_state.get('assignments') is None or \
+       st.session_state.get('task_templates') is None or \
+       st.session_state.get('quest_templates') is None or \
+       st.session_state.get('mission_templates') is None or \
+       st.session_state.get('points') is None:
+         st.error("CRITICAL ERROR: Failed to load essential data files after login.")
+         st.stop()
 
     # Ensure necessary items are in session state for pages to use
     # Most are already set by auth.authenticate()
@@ -57,6 +68,9 @@ elif authentication_status is True:
     st.subheader("Quick Info")
     st.write(f"**Username:** {st.session_state.get('username')}")
     st.write(f"**Role:** {st.session_state.get('role', 'Unknown').capitalize()}")
+    current_points = st.session_state.get('points', {}).get(username, 0)
+    st.sidebar.metric("My Points ✨", current_points)
+    st.sidebar.divider()
 
     # You could add parent-specific summaries or links here too
     if st.session_state.get('role') == 'parent':

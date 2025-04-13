@@ -75,7 +75,7 @@ else:
                             st.session_state['assigned_quests'] = current_assigned # Update state
                             st.success(f"Quest '{quest_template.get('name')}' accepted!")
                             time.sleep(1)
-                            st.experimental_rerun()
+                            st.rerun()
                         # Error message is handled within save_assigments
                     else:
                          st.error("Could not find assignment to accept. It might have been removed.")

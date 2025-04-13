@@ -1,1 +1,17 @@
-{}
+{
+  "The perfect pushup": {
+    "description": "Working out is just as much technique as it is muscle - learning how to do the correct pushup will set you up for success!",
+    "points": 100,
+    "emoji": "\ud83d\udcaa"
+  },
+  "perfect_chinup": {
+    "description": "Upper body strength is so important for later in life and the sooner that you can do a chinup, the faster you are to achieving your goals. Working out teaches us how to be patient with ourselves and our bodies",
+    "points": 150,
+    "emoji": "\ud83d\udcaa"
+  },
+  "Do the splits!": {
+    "description": "Maybe you can already do this - maybe you need to do the quest first - either way. This is a goal of flexibility",
+    "points": 400,
+    "emoji": ""
+  }
+}
