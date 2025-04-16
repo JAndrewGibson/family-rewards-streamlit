@@ -3,7 +3,7 @@ from streamlit_authenticator.utilities.hasher import Hasher
 
 # Create a list of plain text passwords you want to hash
 # Make sure these are the actual passwords you intend to use initially
-passwords_to_hash = ["test"] # Use strong passwords!
+passwords_to_hash = ["lyra kovac"] # Use strong passwords!
 
 # Generate the hashed passwords using the imported Hasher
 # The usage pattern Hasher(list).generate() remains the same

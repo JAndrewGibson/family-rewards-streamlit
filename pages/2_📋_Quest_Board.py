@@ -8,10 +8,8 @@ import utils # Import shared utility functions
 st.set_page_config(page_title="Quest Board", page_icon="📋")
 
 # --- Authentication Check ---
-# Check if user is logged in. Authentication status is set in Home.py/auth.py.
 if st.session_state.get('authentication_status') is not True:
-    st.warning("🔒 Please log in on the Home page to access the Quest Board.")
-    st.stop() # Do not render anything else on this page
+    st.switch_page("home.py")
 # --- End Authentication Check ---
 
 
@@ -28,8 +26,19 @@ if not username or quest_templates is None or assignments_data is None:
      st.error("Required data not found. Please ensure you are logged in and data files are loaded.")
      st.stop()
 
+
+current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
+current_points = f"{current_points_unformatted:,}"
+st.sidebar.metric("My Points", current_points)
+st.sidebar.divider()
+
+if 'authenticator' in st.session_state:
+         st.session_state['authenticator'].logout('Logout', 'sidebar')
+else:
+        st.sidebar.error("Authenticator not found.")
+
 # --- Page Content ---
-st.title("📋 Incoming Quests (Pending Acceptance)")
+st.title("📋 Quest Board")
 st.divider()
 
 kid_assignments = assignments_data.get(username, {})
@@ -74,7 +83,7 @@ else:
                         if utils.save_assignments(current_assigned, ASSIGNED_QUESTS_FILE): # Check if save succeeded
                             st.session_state['assigned_quests'] = current_assigned # Update state
                             st.success(f"Quest '{quest_template.get('name')}' accepted!")
-                            time.sleep(1)
+                            time.sleep(2)
                             st.rerun()
                         # Error message is handled within save_assigments
                     else:

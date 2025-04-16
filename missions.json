@@ -1,29 +1,31 @@
 {
-  "rock_climber_1": {
-    "name": "Rock Climbing Novice!",
-    "description": "You can do it!",
-    "emoji": "",
+  "mission_1": {
+    "name": "First Mission",
+    "description": "First Mission Description",
+    "emoji": "\ud83e\udee7",
     "contains_quests": [
-      "100_pushups",
-      "15_pullups",
-      "splits_training"
+      "quest_1",
+      "quest_2",
+      "quest_3"
     ],
     "contains_tasks": [
-      "Do the splits!"
+      "task_1"
     ],
     "prerequisites": {
-      "100_pushups": [],
-      "15_pullups": [
-        "100_pushups"
+      "quest_1": [],
+      "quest_2": [
+        "quest_1"
       ],
-      "splits_training": [],
-      "Do the splits!": [
-        "splits_training"
+      "quest_3": [
+        "quest_2"
+      ],
+      "task_1": [
+        "quest_1"
       ]
     },
     "completion_reward": {
-      "points": 100,
-      "description": ""
+      "points": 400,
+      "description": "Other Description"
     }
   }
 }

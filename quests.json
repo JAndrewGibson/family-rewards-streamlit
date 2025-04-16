@@ -1,61 +1,89 @@
 {
-  "100_pushups": {
-    "name": "100 Pushups",
-    "description": "Sounds easy right? But it really isn't - I'm only accepting PERFECT pushups on this one. No arched back, your belly has to touch the ground on each one!",
-    "emoji": "\ud83d\udcaa",
+  "quest_1": {
+    "name": "First Quest",
+    "description": "First Quest Description",
+    "emoji": "\u2699\ufe0f",
     "tasks": [
       {
-        "id": "15 Pushups",
-        "description": "This has got to be 10 GOOD pushups. I will not accept anything less",
-        "points": 50,
+        "id": "quest_1_task_1",
+        "name": "Quest 1, Task 1",
+        "description": "First Quest, First Task Description",
+        "points": 200,
+        "emoji": "\ud83d\ude0e"
+      },
+      {
+        "id": "quest_1_task_2",
+        "name": "Quest 1, Task 2",
+        "description": "First Quest, Second Task Description",
+        "points": 250,
         "emoji": ""
       },
       {
-        "id": "25 Pushups",
-        "description": "Okay! More progress! If you can do 15, just a little more work and you've got it!",
-        "points": 50,
-        "emoji": ""
-      },
-      {
-        "id": "50 Pushups",
-        "description": "Here we go!",
-        "points": 50,
+        "id": "quest_1_task_3",
+        "name": "Quest 1, Task 3",
+        "description": "First Quest, Third Task Description",
+        "points": 150,
         "emoji": ""
       }
     ],
-    "completion_bonus_points": 500
+    "completion_bonus_points": 350
   },
-  "15_pullups": {
-    "name": "15 Pullups",
-    "description": "A pullup is so essential for later missions! Don't cheat yourself out of this one - if you want to be able to do a lot later in life, you have to be able to pull your entire body up and out of the ground.\nThese have to be PERFECT, arms straight on the down - chin above the bar on the up!",
-    "emoji": "\ud83d\udcaa",
-    "tasks": [],
-    "completion_bonus_points": 1500
-  },
-  "splits_training": {
-    "name": "Train for the splits!",
-    "description": "Being flexible in your body is so helpful for EVERYTHING in life.",
-    "emoji": "\ud83e\uddbf",
+  "quest_2": {
+    "name": "Second Quest",
+    "description": "Second Quest Desctiption",
+    "emoji": "\ud83d\ude0e",
     "tasks": [
       {
-        "id": "2_days_stretching",
-        "description": "Two days in a row! You must do a full 5 minutes of stretching for 2 days in a row - this is an easy one...",
-        "points": 15,
+        "id": "quest_2_task_1",
+        "name": "Quest 2, Task 1",
+        "description": "Quest 2, Task 1 Description",
+        "points": 0,
         "emoji": ""
       },
       {
-        "id": "10_days_stretching",
-        "description": "This is a much harder one - you need to be consistent and stretch for 10 days in a row. Be careful and pace yourself - you don't want to stretch too far all at once.",
-        "points": 50,
+        "id": "quest_2_task_2",
+        "name": "Quest 2, Task 2",
+        "description": "Quest 2, Task 2 Description",
+        "points": 0,
         "emoji": ""
       },
       {
-        "id": "1_month_stretching",
-        "description": "This is a big one - again, please pace yourself. The goal is consistency.",
-        "points": 100,
+        "id": "Quest 2, Task 3",
+        "name": "Quest 2, Task 3",
+        "description": "Quest 2, Task 3 Description",
+        "points": 0,
+        "emoji": ""
+      },
+      {
+        "id": "quest_2_task_4",
+        "name": "Quest 2, Task 4",
+        "description": "Quest 2, Task 4 Description",
+        "points": 0,
         "emoji": ""
       }
     ],
-    "completion_bonus_points": 1500
+    "completion_bonus_points": 250
+  },
+  "quest_3": {
+    "name": "Third Quest",
+    "description": "Third Quest Description",
+    "emoji": "\ud83d\ude2c",
+    "tasks": [
+      {
+        "id": "quest_3_task_1",
+        "name": "Quest 3, Task 1",
+        "description": "Quest 3, Task 1 Description",
+        "points": 150,
+        "emoji": ""
+      },
+      {
+        "id": "quest_3_task_2",
+        "name": "Quest 3, Task 2",
+        "description": "Quest 3, Task 2 Description",
+        "points": 150,
+        "emoji": ""
+      }
+    ],
+    "completion_bonus_points": 250
   }
 }

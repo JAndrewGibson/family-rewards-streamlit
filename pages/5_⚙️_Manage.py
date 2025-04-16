@@ -5,13 +5,11 @@ import time # For assignment ID generation
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Manage", page_icon="⚙️")
-st.title("⚙️ Content Management & Assignment")
+st.title("⚙️ Manage")
 
 # --- Authentication & Authorization Check ---
-# Ensure user is logged in AND is a parent
 if st.session_state.get('authentication_status') is not True:
-    st.warning("🔒 You must be logged in as a Parent to access this page.")
-    st.stop()
+    st.switch_page("home.py")
 
 # --- Constants for filenames ---
 TASKS_TEMPLATE_FILE = 'tasks.json'
@@ -26,14 +24,26 @@ username = st.session_state.get("username") # Logged-in parent's username
 
 if not config or not username:
      st.error("User configuration not found in session state. Please log in again.")
-     st.stop()
+     time.sleep(2)
+     st.switch_page("home.py")
+
 
 # --- Load Existing Templates (Load fresh each time or use session state carefully) ---
 task_templates = utils.load_task_templates(TASKS_TEMPLATE_FILE)
 quest_templates = utils.load_quest_templates(QUESTS_TEMPLATE_FILE)
 mission_templates = utils.load_mission_templates(MISSIONS_TEMPLATE_FILE)
-# Load assignments fresh before potential modification
 assignments_data = utils.load_assignments(ASSIGNED_QUESTS_FILE)
+
+
+current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
+current_points = f"{current_points_unformatted:,}"
+st.sidebar.metric("My Points", current_points)
+st.sidebar.divider()
+
+if 'authenticator' in st.session_state:
+         st.session_state['authenticator'].logout('Logout', 'sidebar')
+else:
+        st.sidebar.error("Authenticator not found.")
 
 def get_item_display_name(item_id, q_templates, t_templates):
     """Gets a display name for a quest or task ID."""
@@ -51,26 +61,29 @@ if task_templates is None or quest_templates is None or mission_templates is Non
     st.stop()
 
 
-if st.session_state.get('role') == 'kid':
+
+# --- KID/ADMIN ---
+if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
     st.header("Howdy! :D")
+    st.write("I'm working on a settings page for kids right now - I'll see if I can't add style templates - maybe a request form if you're looking for specific rewards/missions")
     st.stop()
 
 
-
-if st.session_state.get('role') == 'parent' or 'admin':
+# --- PARENT/ADMIN ---
+if st.session_state.get('role') == 'parent' or st.session_state.get('role') == 'admin':
     # --- Define Tabs ---
     tab_list = [
-        "📝 Manage Tasks",
-        "⚔️ Manage Quests",
-        "🗺️ Manage Missions",
-        "🎯 Assign Activities" # New Tab
+        "📝 Tasks",
+        "⚔️ Quests",
+        "🗺️ Missions",
+        "🎯 Assign"
     ]
     tab1, tab2, tab3, tab4 = st.tabs(tab_list)
 
     # --- Manage Tasks Tab ---
     with tab1:
-        st.header("📝 Standalone Task Templates")
-        st.write("Define reusable individual tasks.")
+        st.header("📝 Standalone Task Form")
+        st.write("Define individual tasks.")
 
         # Display existing tasks (optional enhancement)
         with st.expander("View Existing Task Templates"):
@@ -78,14 +91,15 @@ if st.session_state.get('role') == 'parent' or 'admin':
                 st.info("No standalone task templates defined yet.")
             else:
                 for task_id, task_data in task_templates.items():
-                    st.write(f"- **{task_id}**: {task_data.get('emoji','')} {task_data.get('description','')} ({task_data.get('points',0)} pts)")
+                    st.write(f"**{task_data.get('name','')}** ({task_data.get('points',0)} pts): {task_data.get('emoji','')} {task_data.get('description','')}")
 
         st.divider()
         st.subheader("Create New Task Template")
 
         # Use a form for better state management on creation
         with st.form("new_task_form", clear_on_submit=True):
-            new_task_id = st.text_input("Task ID (unique, e.g., 'task_clean_dishes'):")
+            new_task_id = st.text_input("Task ID (must be unique):")
+            new_task_name = st.text_input("Task Name")
             new_task_desc = st.text_area("Description:")
             new_task_points = st.number_input("Points:", min_value=0, step=1, value=10)
             new_task_emoji = st.text_input("Emoji Icon:", max_chars=2)
@@ -95,6 +109,8 @@ if st.session_state.get('role') == 'parent' or 'admin':
                 # Validation
                 if not new_task_id:
                     st.error("Task ID cannot be empty.")
+                elif not new_task_name:
+                    st.error("Task Name cannot be empty")
                 elif not new_task_desc:
                     st.error("Task description cannot be empty.")
                 elif new_task_id in task_templates:
@@ -102,13 +118,15 @@ if st.session_state.get('role') == 'parent' or 'admin':
                 else:
                     # Add to data structure
                     task_templates[new_task_id] = {
+                        "name": new_task_name,
                         "description": new_task_desc,
                         "points": new_task_points,
                         "emoji": new_task_emoji
                     }
                     # Attempt to save
                     if utils.save_task_templates(task_templates, TASKS_TEMPLATE_FILE):
-                        st.success(f"Task template '{new_task_id}' saved successfully!")
+                        st.success(f"Task template **{new_task_name}** *({new_task_id})*, saved successfully!")
+                        st.rerun()
                         # No rerun needed due to clear_on_submit=True and reloading data next time
                     else:
                         # Error message handled by save function, remove potentially corrupt data
@@ -116,7 +134,7 @@ if st.session_state.get('role') == 'parent' or 'admin':
 
     # --- Tab 2: Manage Quests ---
     with tab2:
-        st.header("⚔️ Quest Templates")
+        st.header("⚔️ Quest Form")
         st.write("Define quests composed of multiple steps (tasks defined within).")
 
         with st.expander("View Existing Quest Templates"):
@@ -126,7 +144,13 @@ if st.session_state.get('role') == 'parent' or 'admin':
                 for quest_id, quest_data in quest_templates.items():
                     col1, col2 = st.columns([3,1])
                     with col1:
-                        st.write(f"**{quest_id}**: {quest_data.get('emoji','')} {quest_data.get('name','')}")
+                        st.write(f"**{quest_data.get('name','')}** ({quest_data.get('completion_bonus_points','')} pts): {quest_data.get('emoji','')} {quest_data.get('description','')}")
+                        with col2:
+                            if st.checkbox ("See details", key=quest_id):
+                                with col1:
+                                    tasks = quest_data.get('tasks',[])
+                                    for task in tasks:
+                                        st.write(f"- {task.get('emoji','')} **{task.get('name','')}** - *{task.get('description','')}*")
                     # Add delete button functionality here later if needed
 
         st.divider()
@@ -144,25 +168,32 @@ if st.session_state.get('role') == 'parent' or 'admin':
 
         with st.form("new_quest_form"): # Don't clear on submit automatically
             st.write("**Quest Details:**")
-            new_quest_id = st.text_input("Quest ID (unique, e.g., 'quest_yard_work'):", key="quest_form_id")
-            new_quest_name = st.text_input("Quest Name:", key="quest_form_name")
-            new_quest_desc = st.text_area("Description:", key="quest_form_desc")
-            new_quest_emoji = st.text_input("Emoji Icon:", max_chars=2, key="quest_form_emoji")
-            new_quest_bonus = st.number_input("Completion Bonus Points:", min_value=0, step=5, value=0, key="quest_form_bonus")
+            cols2 = st.columns([4,4])
+            new_quest_id = cols2[0].text_input("Quest ID (must be unique):", key="quest_form_id")
+            new_quest_name = cols2[1].text_input("Quest Name:", key="quest_form_name")
+            new_quest_desc = st.text_area("Description:", key="quest_form_desc",)
+            cols3 = st.columns([4,4])
+            new_quest_emoji = cols3[0].text_input("Emoji Icon:", max_chars=2, key="quest_form_emoji")
+            new_quest_bonus = cols3[1].number_input("Completion Bonus Points:", min_value=0, step=50, value=0, key="quest_form_bonus")
 
-            st.divider()
-            st.write("**Tasks within this Quest:**")
-
+            #st.divider()
+            #st.subheader("**Tasks within this Quest:**")
+            # This just doesn't seem necessary...
+            
+            
             # Display input fields for tasks currently in session state
             tasks_to_render = st.session_state.current_quest_tasks
             for i, task_data in enumerate(tasks_to_render):
-                st.markdown(f"--- *Task Step {i+1}* ---")
-                cols = st.columns([2, 4, 1, 1]) # Adjust ratios as needed
+                cols1 = st.columns([1,4])
+                cols1[0].subheader(f"**Task #{i+1}**")
+                cols1[1].divider()
+                cols = st.columns([3, 4, 2,]) # Adjust ratios as needed
                 # Use default values from session state for potential pre-filling
-                task_data['id'] = cols[0].text_input(f"Task ID (unique within quest)", value=task_data.get('id',''), key=f"q_task_id_{i}")
-                task_data['description'] = cols[1].text_area(f"Task Description", value=task_data.get('description',''), key=f"q_task_desc_{i}")
-                task_data['points'] = cols[2].number_input(f"Pts", min_value=0, step=1, value=task_data.get('points',0), key=f"q_task_points_{i}")
-                task_data['emoji'] = cols[3].text_input(f"Emoji", value=task_data.get('emoji',''), max_chars=2, key=f"q_task_emoji_{i}")
+                task_data['id'] = cols[0].text_input(f"Task ID", value=task_data.get('id',''), key=f"q_task_id_{i}")
+                task_data['name'] = cols[0].text_input(f"Task Name", value=task_data.get('name',''), key=f"q_task_name_{i}")
+                task_data['description'] = cols[1].text_area(f"Task Description", value=task_data.get('description',''), key=f"q_task_desc_{i}", height=120)
+                task_data['points'] = cols[2].number_input(f"Points", min_value=0, step=50, value=task_data.get('points',0), key=f"q_task_points_{i}")
+                task_data['emoji'] = cols[2].text_input(f"Emoji", value=task_data.get('emoji',''), max_chars=2, key=f"q_task_emoji_{i}")
                 # Note: This directly modifies the dict in session state IF it's mutable,
                 # but reading back from widget keys during submission is more robust.
 
@@ -176,6 +207,7 @@ if st.session_state.get('role') == 'parent' or 'admin':
 
                 for i in range(num_task_steps):
                     task_id = st.session_state.get(f"q_task_id_{i}", "").strip()
+                    task_name = st.session_state.get(f"q_task_name_{i}").strip()
                     task_desc = st.session_state.get(f"q_task_desc_{i}", "").strip()
                     task_points = st.session_state.get(f"q_task_points_{i}", 0)
                     task_emoji = st.session_state.get(f"q_task_emoji_{i}", "")
@@ -184,6 +216,8 @@ if st.session_state.get('role') == 'parent' or 'admin':
                     if not task_id:
                         st.error(f"Task Step {i+1}: ID cannot be empty.")
                         valid_tasks = False
+                    if not task_name:
+                        st.error(f"Task Name {i+1}: Name cannot be empty")
                     if not task_desc:
                         st.error(f"Task Step {i+1}: Description cannot be empty.")
                         valid_tasks = False
@@ -191,6 +225,7 @@ if st.session_state.get('role') == 'parent' or 'admin':
 
                     final_tasks.append({
                         "id": task_id,
+                        "name":task_name,
                         "description": task_desc,
                         "points": task_points,
                         "emoji": task_emoji
@@ -216,11 +251,12 @@ if st.session_state.get('role') == 'parent' or 'admin':
                         "completion_bonus_points": st.session_state.quest_form_bonus
                     }
                     if utils.save_quest_templates(quest_templates, QUESTS_TEMPLATE_FILE):
-                        st.success(f"Quest template '{quest_id}' saved successfully!")
+                        st.success(f"Quest template **{quest_data.get('name','')}** saved successfully!")
                         # Clear the task list in session state for the next creation
                         st.session_state.current_quest_tasks = []
                         # We might need to rerun to clear the main form fields if clear_on_submit isn't working as expected
-                        # st.experimental_rerun() # Use if form fields don't clear properly
+                        time.sleep(2)
+                        st.rerun() # Use if form fields don't clear properly
                     else:
                         # Save failed, roll back
                         del quest_templates[quest_id]
@@ -245,8 +281,36 @@ if st.session_state.get('role') == 'parent' or 'admin':
             else:
                 for mission_id, mission_data in mission_templates.items():
                         col1, col2 = st.columns([3,1])
+                        quest_column, task_column = st.columns([3,3])
                         with col1:
-                            st.write(f"**{mission_id}**: {mission_data.get('emoji','')} {mission_data.get('name','')}")
+                            rewards = mission_data.get('completion_reward', {})
+                            st.write(f"**{mission_data.get('name','')}** ({rewards.get('points', '')} pts): {mission_data.get('emoji','')} {mission_data.get('description','')}")
+                            quests_in_mission = mission_data.get('contains_quests', [])
+                            tasks_in_mission = mission_data.get('contains_tasks', [])
+                            with col2:
+                                if st.checkbox("See details", key=mission_id):
+                                    with quest_column:
+                                        if quests_in_mission:
+                                            st.write("**Quests in this missions:**")
+                                            for quest_id in quests_in_mission:
+                                                quest_info = quest_templates.get(quest_id)
+                                                if quest_info:
+                                                    st.write(f"- {quest_info.get('name','')}")
+                                                    st.write(f"- - {quest_info.get('description','')}")
+                                                else:
+                                                    st.warning(f"Quest ID {quest_id} not found in quest templates. This error should never exist - tell Andrew immeditely. lol")
+                                        else:
+                                            st.write("**This mission contains no quests**")
+                                    with task_column:        
+                                        if tasks_in_mission:
+                                            st.write("**Standalone Tasks in this Mission**")
+                                            for task_id in tasks_in_mission:
+                                                task_info = task_templates.get(task_id)
+                                                if task_info:
+                                                        st.write(f"- {task_info.get('name','')}")
+                                                        st.write(f"- - {task_info.get('description','')}")
+                                                else:
+                                                    st.write(f"No standalone tasks in this mission")
 
         st.divider()
         st.subheader("Create New Mission Template")
@@ -255,8 +319,8 @@ if st.session_state.get('role') == 'parent' or 'admin':
         with st.form("new_mission_form", clear_on_submit=False):
             new_mission_id = st.text_input("Mission ID (unique, e.g., 'mission_summer_reading'):",key="new_mission_id")
             new_mission_name = st.text_input("Mission Name:", key="new_mission_name")
-            new_mission_desc = st.text_area("Description:")
-            new_mission_emoji = st.text_input("Emoji Icon:", max_chars=2)
+            new_mission_desc = st.text_area("Description:", key="new_mission_desc")
+            new_mission_emoji = st.text_input("Emoji Icon:", max_chars=4, key="new_mission_emoji")
             st.divider()
 
             # --- Select Contained Items ---
@@ -322,8 +386,8 @@ if st.session_state.get('role') == 'parent' or 'admin':
             st.divider()
             # --- Completion Reward ---
             st.subheader("Mission Completion Reward")
-            completion_points = st.number_input("Completion Points Reward:", min_value=0, step=10, value=0)
-            completion_desc = st.text_input("Other Reward Description (optional):")
+            completion_points = st.number_input("Completion Points Reward:", min_value=0, step=100, value=0, key="completion_points") 
+            completion_desc = st.text_input("Other Reward Description (optional):", key="completion_desc")
 
             # --- Submit Button ---
             submitted_mission = st.form_submit_button("💾 Save Mission Template")
@@ -372,9 +436,9 @@ if st.session_state.get('role') == 'parent' or 'admin':
 
                     # --- Save ---
                     if utils.save_mission_templates(mission_templates, MISSIONS_TEMPLATE_FILE):
-                        st.success(f"Mission template '{mission_id}' saved successfully!")
-
-                        st.rerun() # Rerun AFTER clearing state
+                        st.success(f"{mission_name} saved successfully!")
+                        time.sleep(2)
+                        st.rerun()
 
                     else:
                         # Save failed, roll back if needed

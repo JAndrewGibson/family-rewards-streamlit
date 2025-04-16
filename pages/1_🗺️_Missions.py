@@ -4,14 +4,15 @@ import streamlit as st
 import utils # Import shared utility functions
 import time
 import datetime # Needed for acceptance logic maybe?
+import auth
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Missions", page_icon="🗺️")
 
 # --- Authentication Check ---
 if st.session_state.get('authentication_status') is not True:
-    st.warning("🔒 Please log in on the 'Home' page to view Missions.")
-    st.stop()
+    st.switch_page("home.py")
+    
 
 # --- Load Data from Session State ---
 username = st.session_state.get("username")
@@ -19,9 +20,11 @@ mission_templates = st.session_state.get("mission_templates")
 quest_templates = st.session_state.get("quest_templates")
 task_templates = st.session_state.get("task_templates")
 assignments_data = st.session_state.get("assignments")
+current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
+current_points = f"{current_points_unformatted:,}"
 
 # File path needed for saving
-ASSIGNMENTS_FILE = 'assignments.json' # Or your actual filename
+ASSIGNMENTS_FILE = 'assignments.json'
 
 # Check if all necessary data is loaded (Using more verbose checks from previous step)
 error_loading = False
@@ -32,14 +35,28 @@ if task_templates is None: st.error("❌ Task templates missing."); error_loadin
 if assignments_data is None: st.error("❌ Assignments data missing."); error_loading = True
 if error_loading: st.stop()
 
+
+if current_points == 0:
+    st.sidebar.write('''No points yet! Don't worry, as soon as you earn some points - they'll appear here!
+                     ''')
+else:
+    st.sidebar.metric("My Points", current_points)
+    
+st.sidebar.divider()
+
+if 'authenticator' in st.session_state:
+         st.session_state['authenticator'].logout('Logout', 'sidebar')
+else:
+        st.sidebar.error("Authenticator not found.")
+
 # --- Page Content ---
-st.title("🗺️ Your Assigned Missions")
+st.title("🗺️ Your Missions")
 st.divider()
 
 kid_assignments = assignments_data.get(username, {})
 
 # --- 1. Pending Acceptance Section ---
-st.header("📬 Incoming Missions (Pending Acceptance)")
+st.header("📬 Incoming Missions")
 
 pending_missions = {
     assign_id: data for assign_id, data in kid_assignments.items()
@@ -47,9 +64,8 @@ pending_missions = {
 }
 
 if not pending_missions:
-    st.info("No new missions waiting for your approval.")
+    st.info("No new missions yet - check back soon.")
 else:
-    st.write("Review these grand missions and choose to accept or decline:")
     for assign_id, mission_assignment_data in pending_missions.items():
         mission_template_id = mission_assignment_data.get('template_id')
         mission_template = mission_templates.get(mission_template_id)
@@ -64,6 +80,42 @@ else:
 
             # Optional: Preview contained items
             with st.expander("View Mission Components"):
+                 for mission_id, mission_data in mission_templates.items():
+                        col1, col2 = st.columns([3,1])
+                        quest_column, task_column = st.columns([3,3])
+                        with col1:
+                            rewards = mission_data.get('completion_reward', {})
+                            st.write(f"**{mission_data.get('name','')}** ({rewards.get('points', '')} pts): {mission_data.get('emoji','')} {mission_data.get('description','')}")
+                            quests_in_mission = mission_data.get('contains_quests', [])
+                            tasks_in_mission = mission_data.get('contains_tasks', [])
+                            with col2:
+                                if st.checkbox("See details", key=mission_id):
+                                    with quest_column:
+                                        if quests_in_mission:
+                                            st.write("**Quests in this missions:**")
+                                            for quest_id in quests_in_mission:
+                                                quest_info = quest_templates.get(quest_id)
+                                                if quest_info:
+                                                    st.write(f"- {quest_info.get('name','')}")
+                                                    st.write(f"- - {quest_info.get('description','')}")
+                                                else:
+                                                    st.warning(f"Quest ID {quest_id} not found in quest templates. This error should never exist - tell Andrew immeditely. lol")
+                                        else:
+                                            st.write("**This mission contains no quests**")
+                                    with task_column:        
+                                        if tasks_in_mission:
+                                            st.write("**Standalone Tasks in this Mission**")
+                                            for task_id in tasks_in_mission:
+                                                task_info = task_templates.get(task_id)
+                                                if task_info:
+                                                        st.write(f"- {task_info.get('name','')}")
+                                                        st.write(f"- - {task_info.get('description','')}")
+                                                else:
+                                                    st.write(f"No standalone tasks in this mission")
+                 
+                 
+                 
+                 
                  contained_quests = mission_template.get('contains_quests', [])
                  contained_tasks = mission_template.get('contains_tasks', [])
                  if not contained_quests and not contained_tasks: st.write("No components listed.")
@@ -72,9 +124,12 @@ else:
                       for q_id in contained_quests: st.write(f"- {quest_templates.get(q_id,{}).get('name',q_id)}")
                  if contained_tasks:
                       st.markdown("**Tasks:**")
-                      for t_id in contained_tasks: st.write(f"- {task_templates.get(t_id,{}).get('description',t_id)}")
+                      for t_id in contained_tasks: st.write(f"- {task_templates.get(t_id,{}).get('name',t_id)}")
 
-            st.markdown(f"**Completion Reward:** {mission_template.get('completion_reward', {}).get('points', 0)} points. {mission_template.get('completion_reward', {}).get('description', '')}")
+            st.markdown(f"**Completion Points:** {mission_template.get('completion_reward', {}).get('points', 0)} points.")
+            st.markdown(f"**Total Points:**")
+            if not mission_template.get('completion_reward',{}).get('description', '') == None:
+                st.markdown(f"**Other Reward:** {mission_template.get('completion_reward',{}).get('description', '')}")
 
             # Action Buttons
             col1, col2 = st.columns(2)
@@ -122,7 +177,7 @@ accepted_missions = {
 }
 
 if not accepted_missions:
-    st.info("You haven't accepted any missions yet. Check the pending section!")
+    st.info("You haven't accepted any missions yet.")
 else:
     st.write(f"Here are your current missions ({len(accepted_missions)}):")
     st.markdown("---")

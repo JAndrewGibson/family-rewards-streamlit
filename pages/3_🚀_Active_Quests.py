@@ -8,8 +8,7 @@ st.set_page_config(page_title="Active Quests", page_icon="🚀")
 
 # --- Authentication Check ---
 if st.session_state.get('authentication_status') is not True:
-    st.warning("🔒 Please log in on the Home page to view your Active Quests.")
-    st.stop() # Do not render anything else on this page
+    st.switch_page("home.py")
 # --- End Authentication Check ---
 
 # --- Load Data from Session State ---
@@ -17,7 +16,7 @@ username = st.session_state.get("username")
 # Load all templates needed for context
 mission_templates = st.session_state.get("mission_templates")
 quest_templates = st.session_state.get("quest_templates")
-task_templates = st.session_state.get("task_templates") # Needed if showing task points?
+task_templates = st.session_state.get("task_templates")
 assignments_data = st.session_state.get("assignments")
 points_data = st.session_state.get("points")
 POINTS_FILE = 'points.json'
@@ -37,18 +36,20 @@ if not username or quest_templates is None or assignments_data is None:
      st.error("Required data not found. Please ensure you are logged in and data files are loaded.")
      st.stop()
 
-st.subheader("DEBUG INFO: Loaded Templates")
-st.write("**Quest Template Keys Loaded:**")
-st.write(list(quest_templates.keys()))
-st.write("**Task Template Keys Loaded:**")
-st.write(list(task_templates.keys()))
-st.write("**Mission Template Keys Loaded:**")
-st.write(list(mission_templates.keys()))
-st.divider()
-
 active_mission_quests = [] # Ensure initialized
 active_standalone_quests = [] # Ensure initialized
 active_mission_tasks = [] # Let's gather mission tasks separately too for clarity
+
+current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
+current_points = f"{current_points_unformatted:,}"
+st.sidebar.metric("My Points", current_points)
+st.sidebar.divider()
+
+if 'authenticator' in st.session_state:
+         st.session_state['authenticator'].logout('Logout', 'sidebar')
+else:
+        st.sidebar.error("Authenticator not found.")
+
 
 # --- Page Content ---
 st.title("🚀 Your Active Quests")
@@ -92,8 +93,6 @@ for mission_assign_id, mission_assignment_data in accepted_missions.items():
         if quest_instance_status == 'active':
             quest_template = quest_templates.get(quest_id)
             if quest_template:
-                print(f"DEBUG:   Found template for '{quest_id}'. Appending to display list.") # Keep for debugging if needed
-                # --- START CHANGE ---
                 # Append to active_items instead of active_mission_quests
                 # Ensure the keys match what the display loop expects
                 active_items.append({
@@ -138,7 +137,7 @@ else:
 
             st.subheader(f"{qt.get('emoji','⚔️')} {qt.get('name','Unnamed Quest')}")
             if item_type == "mission_quest":
-                 st.caption(f"Part of Mission: '{item['mission_template'].get('name', item['mission_template_id'])}'")
+                 st.caption(f"Part of Mission: _{item['mission_template'].get('name', item['mission_template'])}_")
             st.caption(qt.get('description', 'No description.'))
 
             quest_tasks = qt.get('tasks', [])
@@ -223,7 +222,7 @@ else:
              task_status = "active" # Assumed active as it's in this list
 
              st.subheader(f"{tt.get('emoji','📝')} {tt.get('description','Unnamed Task')}")
-             st.caption(f"Part of Mission: '{item['mission_template'].get('name', item['mission_template_id'])}'")
+             st.caption(f"Part of Mission: '{item['mission_template'].get('name', item['mission_template'])}'")
              st.write(f"Points: {tt.get('points', 0)}")
 
              button_key = f"done_{item_type}_{assign_id}_{task_id}"

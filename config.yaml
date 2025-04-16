@@ -1,50 +1,163 @@
 credentials:
   usernames:
-    # --- Parent Accounts ---
-    joseph_jackson: # Maybe use more descriptive usernames
+  # --- Parent Accounts ---
+    
+    joseph_jackson:
       email: josephchavezjackson@gmail.com
       name: "Joseph Jackson"
       password: "$2b$12$1CaowrDHUqWT1LlWkrIuquZA331s3H9sOFs6JtIl888joaS3.vTjG"
       role: "parent"
-      children: # <-- Add this list
-        - audrey chavez-jackson  # List the usernames of Dad's kids
-        - samuel chavez-jackson
+      children:
+        - audrey chavez-jackson
+        - samual chavez-jackson
+        - sebastian chavez-jackson
+    
     sara_summers:
       email: 7inwhite@gmail.com
       name: "Sara Summers"
       password: "$2b$12$bJjLJMHeHRUcwf1bBg9yOOdOzJsryzdLZCWQU7tVDEYfPTDdbt92m"
       role: "parent"
-      children: # <-- Add this list
-        - audrey chavez-jackson  # Mom can also be linked to the same kids
-        - samuel chavez-jackson
-
-    # --- Kid Accounts ---
-    audrey chavez-jackson: # Use descriptive usernames for kids too
-      email: kid1@example.com
-      name: "Audrey"
-      password: "$2b$12$yQnDeKvlwaWpVj8isf5WO..Laj./boEfw8gRZXp0Fhl9C6K.wk5gS"
-      role: "kid"
-      # No 'children' key needed for kids
-    samuel chavez-jackson:
-      email: kid2@example.com
-      name: "Samuel"
-      password: "$2b$12$DynyMj5v8E9gJCS/zYiDG.tMQdIEsW4e3L1TDztE/0ZDIN.3JTc/S"
-      role: "kid"
-
-    # --- Example: Another family unit (optional) ---
-    Andrew:
-      email: JoelAndrewGibson@gmail.com
-      name: "Master & Commander"
-      password: "$2b$12$sZY03kawgXpEXaoBvoF6xOV9CkvBVZmZ8FcSHht/5FTuIPGwqvWC."
-      role: "parent"
       children:
         - audrey chavez-jackson
-        - samuel chavez-jackson
-    kid3_charlie:
-      email: kid3@example.com
-      name: "Charlie"
-      password: "$2b$12$hashed_password_for_kid3"
+        - samual chavez-jackson
+        - sebastian chavez-jackson
+    
+    jasmine_reeves:
+      email: 
+      name: "Jasmine Leschi Hubbard"
+      password: ""
+      role: "parent"
+      children:
+        - lyra kovac
+        - michael reeves
+        - ivy reeves
+        - martin kovac
+
+    david_reeves:
+      email: 
+      name: "David Reeves"
+      password: ""
+      role: "parent"
+      children:
+        - lyra kovac
+        - michael reeves
+        - ivy reeves
+        - martin kovac
+    
+    jonathon hubbard:
+      email:
+      name: "Jonathon Ray Hubbard"
+      password: ""
+      role: "parent"
+      children:
+        - olivia hubbard
+        - elijah hubbard
+    
+    natasia hubbard:
+      email:
+      name: "Natasia Hubbard"
+      password: ""
+      role: "parent"
+      children:
+      - olivia hubbard
+      - elijah hubbard
+    
+  # --- SARA/JJ's Kids ---
+    audrey chavez-jackson:
+      email: 
+      name: "Audrey Rain Chavez-Jackson"
+      password: "$2b$12$yQnDeKvlwaWpVj8isf5WO..Laj./boEfw8gRZXp0Fhl9C6K.wk5gS"
       role: "kid"
+      #birthday: "4/15/2015"
+      birthday: "7/18/2015"
+    samual chavez-jackson:
+      email: 
+      name: "Samual Nathan Chavez-Jackson"
+      password: ""
+      role: "kid"
+      birthday: "4/3/2017"
+    sebastian chavez-jackson:
+      email: 
+      name: "Sebastian Locke Chavez-Jackson"
+      password: ""
+      role: "kid"
+      birthday: "12/27/2018"
+
+  # --- Jasmine/David's Kids ---
+    lyra kovac:
+      email: 
+      name: "Lyra Ann Kovac"
+      password: "$2b$12$GvwLwjeELHjqdFUwRwugYOrOuLL6EMFYk8CQJvfiZ4wgJ7mqZKF.K"
+      role: "kid"
+      birthday: "1/6/2014"
+    ivy reeves:
+      email:
+      name: "Ivy Elizabeth Reeves"
+      password: ""
+      role: "kid"
+      birthday: "1/16/2022"
+    martin kovac:
+      email: 
+      name: "Martin Robert Kovac"
+      password: ""
+      role: "kid"
+      birthday: "3/18/2024"
+    michael reeves:
+      email: 
+      name: "Michael Thomas Reeves"
+      password: ""
+      role: "kid"
+      birthday: "12/15/2016"
+    
+  # --- Jonathon/Natasia's Kids ---
+
+    olivia hubbard:
+      email: 
+      name: "Olivia Rae Hubbard"
+      password: ""
+      role: "kid"
+      birthday: "11/1/2014"
+    
+    elijah hubbard:
+      email: 
+      name: "Elijah Hubbard"
+      password: ""
+      role: "kid"
+      birthday: "12/5/2017"
+
+  # --- ADMIN ACCOUNTS ---
+    Andrew:
+      email: JoelAndrewGibson@gmail.com
+      name: "Andrew Gibson"
+      password: "$2b$12$sZY03kawgXpEXaoBvoF6xOV9CkvBVZmZ8FcSHht/5FTuIPGwqvWC."
+      role: "admin"
+      children:
+        - audrey chavez-jackson
+        - samual chavez-jackson
+        - sebastian chavez-jackson
+        - lyra kovac
+        - michael reeves
+        - ivy reeves
+        - martin kovac
+        - olivia hubbard
+        - elijah hubbard
+    paul gibson:
+      email: paulmgibson@gmail.com
+      name: "Paul Gibson"
+      password: "$2b$12$cqhCh3BajsP3zam3vfIbdeS9DYmVSv7QfQwT8G2onC0tVntjerLG2"
+      role: "admin"
+      children:
+        - audrey chavez-jackson
+        - samual chavez-jackson
+        - sebastian chavez-jackson
+        - lyra kovac
+        - michael reeves
+        - ivy reeves
+        - martin kovac
+        - olivia hubbard
+        - elijah hubbard
+    
+
 cookie:
   expiry_days: 30
   key: "bagelator" # Use your existing key
