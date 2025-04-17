@@ -57,7 +57,7 @@ pending_assignments = {
 }
 
 if not pending_assignments:
-    st.write("NO TASKS")
+    st.info("No tasks assigned at this time")
 else:
     st.write("Review these tasks and choose to accept or decline:")
     for assign_id, assign_data in pending_assignments.items():

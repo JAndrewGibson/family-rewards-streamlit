@@ -1,7 +1,11 @@
 import streamlit as st
 import utils # Import shared utility functions
-import datetime
+from datetime import datetime, timezone
 import time # For assignment ID generation
+from pathlib import Path
+import json
+import os
+import pandas as pd
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Manage", page_icon="⚙️")
@@ -16,13 +20,15 @@ TASKS_TEMPLATE_FILE = 'tasks.json'
 QUESTS_TEMPLATE_FILE = 'quests.json'
 MISSIONS_TEMPLATE_FILE = 'missions.json'
 ASSIGNED_QUESTS_FILE = 'assignments.json'
+HISTORY_FOLDER = Path("user_history")
 
 # --- Load Data (Load fresh for management/assignment actions) ---
 # Use .get() from session state for config, but load templates/assignments fresh
 config = st.session_state.get("config")
 username = st.session_state.get("username") # Logged-in parent's username
+name = st.session_state['name']
 
-if not config or not username:
+if not config or not username or not name:
      st.error("User configuration not found in session state. Please log in again.")
      time.sleep(2)
      st.switch_page("home.py")
@@ -33,7 +39,7 @@ task_templates = utils.load_task_templates(TASKS_TEMPLATE_FILE)
 quest_templates = utils.load_quest_templates(QUESTS_TEMPLATE_FILE)
 mission_templates = utils.load_mission_templates(MISSIONS_TEMPLATE_FILE)
 assignments_data = utils.load_assignments(ASSIGNED_QUESTS_FILE)
-
+firstname = utils.first_name(name)
 
 current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
 current_points = f"{current_points_unformatted:,}"
@@ -49,10 +55,10 @@ def get_item_display_name(item_id, q_templates, t_templates):
     """Gets a display name for a quest or task ID."""
     quest_info = q_templates.get(item_id)
     if quest_info:
-        return f"Quest: {quest_info.get('name', item_id)}"
+        return f"Quest: {quest_info.get('name', item_id)} ({quest_info.get('quest_combined_points')} pts)"
     task_info = t_templates.get(item_id)
     if task_info:
-        return f"Task: {task_info.get('description', item_id)}"
+        return f"Task: {task_info.get('description', item_id)} ({task_info.get('points')} pts)"
     return item_id # Fallback
 
 # Handle loading errors
@@ -62,13 +68,6 @@ if task_templates is None or quest_templates is None or mission_templates is Non
 
 
 
-# --- KID/ADMIN ---
-if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
-    st.header("Howdy! :D")
-    st.write("I'm working on a settings page for kids right now - I'll see if I can't add style templates - maybe a request form if you're looking for specific rewards/missions")
-    st.stop()
-
-
 # --- PARENT/ADMIN ---
 if st.session_state.get('role') == 'parent' or st.session_state.get('role') == 'admin':
     # --- Define Tabs ---
@@ -76,9 +75,10 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
         "📝 Tasks",
         "⚔️ Quests",
         "🗺️ Missions",
-        "🎯 Assign"
+        "🎯 Assign",
+        "🗝️ History"
     ]
-    tab1, tab2, tab3, tab4 = st.tabs(tab_list)
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(tab_list)
 
     # --- Manage Tasks Tab ---
     with tab1:
@@ -121,21 +121,80 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                         "name": new_task_name,
                         "description": new_task_desc,
                         "points": new_task_points,
-                        "emoji": new_task_emoji
+                        "emoji": new_task_emoji,
+                        "created_by": username
                     }
+                    
                     # Attempt to save
                     if utils.save_task_templates(task_templates, TASKS_TEMPLATE_FILE):
                         st.success(f"Task template **{new_task_name}** *({new_task_id})*, saved successfully!")
-                        st.rerun()
-                        # No rerun needed due to clear_on_submit=True and reloading data next time
+                        # --- BEGIN HISTORY LOGGING FOR TASK CREATION ---
+                        try:
+                            # Ensure firstname is available (should be if user is logged in)
+                            if not firstname:
+                                st.warning("Could not log task creation event: User information not found.")
+                            else:
+                                # Construct history file path (same logic as login)
+                                safe_filename = f"{firstname}_history.json"
+                                history_file_path = HISTORY_FOLDER / safe_filename
+
+                                # Ensure the directory exists (though login should have created it)
+                                HISTORY_FOLDER.mkdir(parents=True, exist_ok=True)
+
+                                # Create the event data
+                                now_utc = datetime.now(timezone.utc)
+                                timestamp_iso = now_utc.isoformat()
+                                task_creation_event = {
+                                    "timestamp": timestamp_iso,
+                                    "event_type": "task_created",
+                                    "user": firstname,
+                                    "task_id": new_task_id, # Include the relevant ID
+                                    "message": f"{firstname} created task template '{new_task_name}'."
+                                }
+
+                                # --- Read current history ---
+                                current_history = []
+                                if history_file_path.is_file(): # Check if file exists before reading
+                                    try:
+                                        with open(history_file_path, 'r', encoding='utf-8') as f:
+                                            content = f.read()
+                                            if content:
+                                                current_history = json.loads(content)
+                                                if not isinstance(current_history, list):
+                                                    print(f"Warning: History file {history_file_path} was not a list. Resetting for append.") # Server log
+                                                    current_history = []
+                                            # If content is empty, current_history remains []
+                                    except json.JSONDecodeError:
+                                        print(f"Warning: History file {history_file_path} contained invalid JSON. Resetting for append.") # Server log
+                                        current_history = []
+                                    except OSError as e:
+                                        st.warning(f"Could not read history file to log task creation: {e}")
+                                        current_history = None # Signal error state
+                                # If file didn't exist, current_history remains []
+
+                                # --- Append and Write back (only if read was successful or file didn't exist) ---
+                                if current_history is not None:
+                                    current_history.append(task_creation_event)
+                                    try:
+                                        with open(history_file_path, 'w', encoding='utf-8') as f:
+                                            json.dump(current_history, f, indent=4)
+                                        print(f"Logged task_created event for {firstname}, task ID {new_task_id}.") # Server log
+                                    except OSError as e:
+                                        st.warning(f"Could not write history file to log task creation: {e}")
+
+                        except Exception as e:
+                            # Catch any unexpected errors during history logging
+                            st.warning(f"An error occurred while logging task creation to history: {e}")
+                        # --- END HISTORY LOGGING FOR TASK CREATION ---
                     else:
                         # Error message handled by save function, remove potentially corrupt data
                         del task_templates[new_task_id] # Roll back change if save failed
+                    
 
     # --- Tab 2: Manage Quests ---
     with tab2:
         st.header("⚔️ Quest Form")
-        st.write("Define quests composed of multiple steps (tasks defined within).")
+        st.caption("Define quests composed of multiple steps (tasks defined within).")
 
         with st.expander("View Existing Quest Templates"):
             if not quest_templates:
@@ -144,13 +203,14 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                 for quest_id, quest_data in quest_templates.items():
                     col1, col2 = st.columns([3,1])
                     with col1:
-                        st.write(f"**{quest_data.get('name','')}** ({quest_data.get('completion_bonus_points','')} pts): {quest_data.get('emoji','')} {quest_data.get('description','')}")
+                        st.write(f"**{quest_data.get('name','')}** ({quest_data.get('quest_combined_points','')} pts): {quest_data.get('emoji','')} {quest_data.get('description','')}")
                         with col2:
                             if st.checkbox ("See details", key=quest_id):
                                 with col1:
                                     tasks = quest_data.get('tasks',[])
                                     for task in tasks:
-                                        st.write(f"- {task.get('emoji','')} **{task.get('name','')}** - *{task.get('description','')}*")
+                                        st.write(f"- {task.get('emoji','')} **{task.get('name','')}** ({task.get('points','')} pts): - {task.get('description','')}")
+                                    st.badge(f"**Completion points: {quest_data.get('completion_bonus_points')}**", color="blue")
                     # Add delete button functionality here later if needed
 
         st.divider()
@@ -160,11 +220,6 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
         if 'current_quest_tasks' not in st.session_state:
             st.session_state.current_quest_tasks = []
 
-        # Optional: Add selectbox to load existing quest for editing (more complex state)
-        # Simple approach: Focus on creation first. Clear state for new quest.
-        # if st.button("Start New Quest Definition"):
-        #     st.session_state.current_quest_tasks = []
-        #     # Clear other potential form states if needed
 
         with st.form("new_quest_form"): # Don't clear on submit automatically
             st.write("**Quest Details:**")
@@ -174,11 +229,8 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
             new_quest_desc = st.text_area("Description:", key="quest_form_desc",)
             cols3 = st.columns([4,4])
             new_quest_emoji = cols3[0].text_input("Emoji Icon:", max_chars=2, key="quest_form_emoji")
-            new_quest_bonus = cols3[1].number_input("Completion Bonus Points:", min_value=0, step=50, value=0, key="quest_form_bonus")
-
-            #st.divider()
-            #st.subheader("**Tasks within this Quest:**")
-            # This just doesn't seem necessary...
+            new_quest_bonus = cols3[1].number_input("Completion Bonus Points:", min_value=0, step=50, value=0, key="quest_form_bonus",)
+            total_points = st.session_state.quest_form_bonus
             
             
             # Display input fields for tasks currently in session state
@@ -194,8 +246,10 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                 task_data['description'] = cols[1].text_area(f"Task Description", value=task_data.get('description',''), key=f"q_task_desc_{i}", height=120)
                 task_data['points'] = cols[2].number_input(f"Points", min_value=0, step=50, value=task_data.get('points',0), key=f"q_task_points_{i}")
                 task_data['emoji'] = cols[2].text_input(f"Emoji", value=task_data.get('emoji',''), max_chars=2, key=f"q_task_emoji_{i}")
+                total_points += st.session_state.get(f"q_task_points_{i}", "")
                 # Note: This directly modifies the dict in session state IF it's mutable,
                 # but reading back from widget keys during submission is more robust.
+
 
             # Save Quest Button (inside the form)
             submitted_quest = st.form_submit_button("💾 Save Quest Template")
@@ -248,7 +302,8 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                         "description": st.session_state.quest_form_desc,
                         "emoji": st.session_state.quest_form_emoji,
                         "tasks": final_tasks, # Use the reconstructed list
-                        "completion_bonus_points": st.session_state.quest_form_bonus
+                        "completion_bonus_points": st.session_state.quest_form_bonus,
+                        "quest_combined_points": total_points
                     }
                     if utils.save_quest_templates(quest_templates, QUESTS_TEMPLATE_FILE):
                         st.success(f"Quest template **{quest_data.get('name','')}** saved successfully!")
@@ -267,8 +322,6 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
             # Add a new blank task structure to the list in session state
             st.session_state.current_quest_tasks.append({"id": "", "description": "", "points": 0, "emoji": ""})
             st.rerun()
-            # No rerun needed here, Streamlit will rerun when the button state changes,
-            # and the form will re-render with the new item from session state.
 
     # --- Tab 3: Manage Missions ---
     with tab3:
@@ -284,7 +337,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                         quest_column, task_column = st.columns([3,3])
                         with col1:
                             rewards = mission_data.get('completion_reward', {})
-                            st.write(f"**{mission_data.get('name','')}** ({rewards.get('points', '')} pts): {mission_data.get('emoji','')} {mission_data.get('description','')}")
+                            st.write(f"**{mission_data.get('name','')}** ({mission_data.get('mission_combined_points', '')} pts): {mission_data.get('emoji','')} {mission_data.get('description','')}")
                             quests_in_mission = mission_data.get('contains_quests', [])
                             tasks_in_mission = mission_data.get('contains_tasks', [])
                             with col2:
@@ -295,19 +348,20 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                                             for quest_id in quests_in_mission:
                                                 quest_info = quest_templates.get(quest_id)
                                                 if quest_info:
-                                                    st.write(f"- {quest_info.get('name','')}")
+                                                    st.write(f"- {quest_info.get('name','')} ({quest_info.get('quest_combined_points', '')} pts)")
                                                     st.write(f"- - {quest_info.get('description','')}")
                                                 else:
                                                     st.warning(f"Quest ID {quest_id} not found in quest templates. This error should never exist - tell Andrew immeditely. lol")
                                         else:
                                             st.write("**This mission contains no quests**")
+                                        st.badge(f"Completion points: {rewards.get('points')}",)
                                     with task_column:        
                                         if tasks_in_mission:
                                             st.write("**Standalone Tasks in this Mission**")
                                             for task_id in tasks_in_mission:
                                                 task_info = task_templates.get(task_id)
                                                 if task_info:
-                                                        st.write(f"- {task_info.get('name','')}")
+                                                        st.write(f"- {task_info.get('name','')} ({task_info.get('points', '')} pts)")
                                                         st.write(f"- - {task_info.get('description','')}")
                                                 else:
                                                     st.write(f"No standalone tasks in this mission")
@@ -330,7 +384,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                 "Include Quests:",
                 options=list(quest_options_map.keys()),
                 format_func=lambda qid: quest_options_map[qid],
-                key="mission_quests_select" # Assign a key
+                key="mission_quests_select"
             )
 
             task_options_map = {tid: get_item_display_name(tid, quest_templates, task_templates) for tid in task_templates}
@@ -338,7 +392,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                 "Include Standalone Tasks:",
                 options=list(task_options_map.keys()),
                 format_func=lambda tid: task_options_map[tid],
-                key="mission_tasks_select" # Assign a key
+                key="mission_tasks_select"
             )
 
             # Combine all selected items for prerequisite definition
@@ -403,9 +457,33 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                 mission_emoji = st.session_state.get("new_mission_emoji", "")
                 completion_points = st.session_state.get("completion_points", 0)
                 completion_desc = st.session_state.get("completion_desc", "")
+                calculated_combined_points = int(completion_points)
+                
+                # --- ADDING POINTS FROM QUESTS AND TASKS ---
+                for quest_id in final_selected_quests:
+                    quest_data = quest_templates.get(quest_id) # Fetch quest data
+                    if quest_data:
+                        quest_pts = quest_data.get('quest_combined_points', 0)
+                        try:
+                            calculated_combined_points += int(quest_pts)
+                        except (ValueError, TypeError):
+                            st.warning(f"Quest '{quest_id}' ('{quest_data.get('name', 'Unknown')}') has non-numeric 'quest_combined_points' ({quest_pts}). Skipping points.")
+                            print(f"Warning: Non-numeric quest_combined_points for quest {quest_id}: {quest_pts}")
+                # Add points from selected standalone tasks
+                for task_id in final_selected_tasks:
+                    task_data = task_templates.get(task_id) # Fetch task data
+                    if task_data:
+                        # Get 'points', default to 0 if missing or not a number
+                        task_pts = task_data.get('points', 0)
+                        try:
+                            calculated_combined_points += int(task_pts)
+                        except (ValueError, TypeError):
+                            st.warning(f"Task '{task_id}' ('{task_data.get('name', 'Unknown')}') has non-numeric 'points' ({task_pts}). Skipping points.")
+                            # Optionally log this error for debugging
+                            print(f"Warning: Non-numeric points for task {task_id}: {task_pts}")
 
 
-                # Assume basic validation passed... (add your checks here)
+                # Basic validation test
                 valid_to_save = True
                 if not mission_id or not mission_name:
                     st.error("Mission ID and Name cannot be empty.")
@@ -413,7 +491,9 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                 elif mission_id in mission_templates:
                     st.error(f"Mission ID '{mission_id}' already exists.")
                     valid_to_save = False
-                # Add other validation...
+                elif not final_all_selected:
+                    st.warning("The mission should contain at least one Quest or Task.")
+                    valid_to_save = False
 
                 if valid_to_save:
                     # --- Collect Prerequisite Data ---
@@ -431,7 +511,8 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                         "contains_quests": final_selected_quests,
                         "contains_tasks": final_selected_tasks,
                         "prerequisites": prerequisites_dict,
-                        "completion_reward": {"points": completion_points, "description": completion_desc }
+                        "completion_reward": {"points": completion_points, "description": completion_desc },
+                        "mission_combined_points": calculated_combined_points
                     }
 
                     # --- Save ---
@@ -496,7 +577,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                                 if not task_templates:
                                     st.warning("No standalone task templates have been created yet.")
                                 else:
-                                    template_options = {tid: f"{tdata.get('emoji','')} {tdata.get('description', tid)} ({tid})" for tid, tdata in task_templates.items()}
+                                    template_options = {tid: f"{tdata.get('emoji','')} {tdata.get('name', tid)} ({tdata.get('points', tid)} pts) - {tdata.get('description', tid)} ({tid})" for tid, tdata in task_templates.items()}
                                     selected_template_display = st.selectbox(
                                         f"3. Select {assign_type}:",
                                         options=[""] + list(template_options.values()),
@@ -511,7 +592,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                                 if not quest_templates:
                                     st.warning("No quest templates have been created yet.")
                                 else:
-                                    template_options = {qid: f"{qdata.get('emoji','')} {qdata.get('name', qid)} ({qid})" for qid, qdata in quest_templates.items()}
+                                    template_options = {qid: f"{qdata.get('emoji','')} {qdata.get('name', qid)} ({qdata.get('quest_combined_points', qid)} pts) - {qdata.get('description', qid)} ({qid})" for qid, qdata in quest_templates.items()}
                                     selected_template_display = st.selectbox(
                                         f"3. Select {assign_type}:",
                                         options=[""] + list(template_options.values()),
@@ -526,7 +607,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                                 if not mission_templates:
                                     st.warning("No mission templates have been created yet.")
                                 else:
-                                    template_options = {mid: f"{mdata.get('emoji','')} {mdata.get('name', mid)} ({mid})" for mid, mdata in mission_templates.items()}
+                                    template_options = {mid: f"{mdata.get('emoji','')} {mdata.get('name', mid)} ({mdata.get('mission_combined_points', mid)} pts) - {mdata.get('description', mid)} ({mid})" for mid, mdata in mission_templates.items()}
                                     selected_template_display = st.selectbox(
                                         f"3. Select {assign_type}:",
                                         options=[""] + list(template_options.values()),
@@ -589,3 +670,112 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
 
                                 else:
                                     st.warning("Please ensure a child and an activity template are selected.")
+                with tab5:
+                    if st.session_state.get('role'):
+                        st.header("EVENT HISTORY") # Moved header inside the check for consistency
+
+                        # Ensure we have the user's firstname
+                        if not firstname:
+                            st.warning("Cannot display history: User information not found.")
+                        else:
+                            try:
+                                # Construct the path to the user's history file
+                                safe_filename = f"{firstname}_history.json"
+                                history_file_path = HISTORY_FOLDER / safe_filename
+
+                                # Check if the history file exists
+                                if history_file_path.is_file():
+                                    # Read the content of the history file
+                                    with open(history_file_path, 'r', encoding='utf-8') as f:
+                                        content = f.read()
+
+                                    # Check if the file is empty before trying to parse JSON
+                                    if not content:
+                                        st.info("No history events recorded yet.")
+                                    else:
+                                        # Parse the JSON data
+                                        history_data = json.loads(content)
+
+                                        # Check if the loaded data is a list (expected format)
+                                        if not isinstance(history_data, list):
+                                            st.error("History file format is incorrect. Expected a list of events.")
+                                            print(f"Error: History file {history_file_path} is not a list.") # Server log
+                                        # Check if the list is empty
+                                        elif not history_data:
+                                            st.info("No history events recorded yet.")
+                                        else:
+                                            # --- Convert to Pandas DataFrame ---
+                                            df_history = pd.DataFrame(history_data)
+
+                                            # --- Optional: Data Cleaning and Formatting ---
+
+                                            # 1. Convert timestamp string to datetime objects (optional but good practice)
+                                            #    Errors='coerce' will turn unparseable timestamps into NaT (Not a Time)
+                                            if 'timestamp' in df_history.columns:
+                                                df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce')
+
+                                            # 2. Sort by timestamp (most recent first)
+                                            if 'timestamp' in df_history.columns:
+                                                df_history = df_history.sort_values(by='timestamp', ascending=False)
+
+                                            # 3. Select and reorder columns for display (adjust as needed)
+                                            #    Include all likely columns; Pandas handles missing ones with NaN/None
+                                            display_columns = ['timestamp', 'event_type', 'message', 'task_id', 'user']
+                                            # Filter to keep only columns that actually exist in the DataFrame
+                                            existing_columns = [col for col in display_columns if col in df_history.columns]
+                                            df_display = df_history[existing_columns]
+
+                                            # --- Display the DataFrame ---
+                                            st.dataframe(
+                                                df_display,
+                                                use_container_width=True, # Make table use full tab width
+                                                hide_index=True # Hide the default numerical index
+                                                )
+                                            # Alternatively, use st.write(df_display) for a static table
+
+                                else:
+                                    # File doesn't exist for this user
+                                    st.info(f"No history found for user '{firstname}'.")
+
+                            except json.JSONDecodeError:
+                                st.error("Failed to read history file: Invalid format.")
+                                print(f"Error: JSONDecodeError reading {history_file_path}") # Server log
+                            except FileNotFoundError:
+                                # This case is handled by the is_file() check above, but good practice
+                                st.info(f"No history found for user '{firstname}'.")
+                            except OSError as e:
+                                st.error(f"An error occurred while accessing history file: {e}")
+                                print(f"Error: OSError accessing {history_file_path}: {e}") # Server log
+                            except Exception as e:
+                                st.error(f"An unexpected error occurred while displaying history: {e}")
+                                print(f"Error: Unexpected error displaying history for {firstname}: {e}") # Server log
+
+                                    
+# --- KID/ADMIN ---
+if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
+    tab_list = [
+    "🗝️ History",
+    "🧑🏽‍💻Code",
+    ]
+    tab1, tab2 = st.tabs(tab_list)
+    
+    with tab1:
+        st.subheader("This is where you can see all of your completed tasks, quests and missions.")
+    
+    with tab2:
+        st.header("Hey, how'd you build this? 🤔")
+        st.write("Curious how I bulit this web application?")
+        st.write("This entire webpage was created by me (yes, WITHOUT the use of AI) - including all of the logic behind the scenes that makes it work.")
+        st.markdown(f"You can view all of the code that makes it run on my github by [clicking here.](https://github.com/JAndrewGibson/family-rewards-streamlit)")
+        st.write("Here's how this small portion of the website looks in the code:")
+        st.code('''           
+    if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
+        st.header("Hey, how'd you build this?")
+        st.write("Curious how I bulit this web application?")
+        st.write("This entire webpage was created by me (yes, WITHOUT the use of AI) - including all of the logic behind the scenes that makes it work.")
+        st.markdown(f"You can view all of the code that makes it run on my github by [clicking here.](https://github.com/JAndrewGibson/family-rewards-streamlit)")
+        st.write("Here's how this small portion of the website looks in the code:")         
+                ''')
+        
+        st.write("If I'm just writing text or a link, it's pretty easy.")
+        st.write("When it get to programming the logic - it gets a little more complex. But don't worry - there's a mission for learning all that.")

@@ -11,6 +11,7 @@ credentials:
         - audrey chavez-jackson
         - samual chavez-jackson
         - sebastian chavez-jackson
+      timezone: America/Anchorage
     
     sara_summers:
       email: 7inwhite@gmail.com
@@ -21,6 +22,7 @@ credentials:
         - audrey chavez-jackson
         - samual chavez-jackson
         - sebastian chavez-jackson
+      timezone: America/Anchorage
     
     jasmine_reeves:
       email: 
@@ -32,6 +34,7 @@ credentials:
         - michael reeves
         - ivy reeves
         - martin kovac
+      timezone: America/Anchorage
 
     david_reeves:
       email: 
@@ -43,6 +46,7 @@ credentials:
         - michael reeves
         - ivy reeves
         - martin kovac
+      timezone: America/Anchorage
     
     jonathon hubbard:
       email:
@@ -52,6 +56,7 @@ credentials:
       children:
         - olivia hubbard
         - elijah hubbard
+      timezone: America/New_York
     
     natasia hubbard:
       email:
@@ -59,8 +64,9 @@ credentials:
       password: ""
       role: "parent"
       children:
-      - olivia hubbard
-      - elijah hubbard
+        - olivia hubbard
+        - elijah hubbard
+      timezone: America/New_York
     
   # --- SARA/JJ's Kids ---
     audrey chavez-jackson:
@@ -70,18 +76,21 @@ credentials:
       role: "kid"
       #birthday: "4/15/2015"
       birthday: "7/18/2015"
+      timezone: America/Anchorage
     samual chavez-jackson:
       email: 
       name: "Samual Nathan Chavez-Jackson"
       password: ""
       role: "kid"
       birthday: "4/3/2017"
+      timezone: America/Anchorage
     sebastian chavez-jackson:
       email: 
       name: "Sebastian Locke Chavez-Jackson"
       password: ""
       role: "kid"
       birthday: "12/27/2018"
+      timezone: America/Anchorage
 
   # --- Jasmine/David's Kids ---
     lyra kovac:
@@ -90,24 +99,28 @@ credentials:
       password: "$2b$12$GvwLwjeELHjqdFUwRwugYOrOuLL6EMFYk8CQJvfiZ4wgJ7mqZKF.K"
       role: "kid"
       birthday: "1/6/2014"
+      timezone: America/Anchorage
     ivy reeves:
       email:
       name: "Ivy Elizabeth Reeves"
       password: ""
       role: "kid"
       birthday: "1/16/2022"
+      timezone: America/Anchorage
     martin kovac:
       email: 
       name: "Martin Robert Kovac"
       password: ""
       role: "kid"
       birthday: "3/18/2024"
+      timezone: America/Anchorage
     michael reeves:
       email: 
       name: "Michael Thomas Reeves"
       password: ""
       role: "kid"
       birthday: "12/15/2016"
+      timezone: America/Anchorage
     
   # --- Jonathon/Natasia's Kids ---
 
@@ -117,6 +130,7 @@ credentials:
       password: ""
       role: "kid"
       birthday: "11/1/2014"
+      timezone: America/New_York
     
     elijah hubbard:
       email: 
@@ -124,6 +138,7 @@ credentials:
       password: ""
       role: "kid"
       birthday: "12/5/2017"
+      timezone: America/New_York
 
   # --- ADMIN ACCOUNTS ---
     Andrew:
@@ -131,6 +146,7 @@ credentials:
       name: "Andrew Gibson"
       password: "$2b$12$sZY03kawgXpEXaoBvoF6xOV9CkvBVZmZ8FcSHht/5FTuIPGwqvWC."
       role: "admin"
+      birthday: "4/15/1995"
       children:
         - audrey chavez-jackson
         - samual chavez-jackson
@@ -141,6 +157,7 @@ credentials:
         - martin kovac
         - olivia hubbard
         - elijah hubbard
+      timezone: America/Los_Angeles
     paul gibson:
       email: paulmgibson@gmail.com
       name: "Paul Gibson"
@@ -156,6 +173,7 @@ credentials:
         - martin kovac
         - olivia hubbard
         - elijah hubbard
+      timezone: America/Anchorage
     
 
 cookie:

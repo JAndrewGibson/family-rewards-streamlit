@@ -1,10 +1,19 @@
 {
   "audrey chavez-jackson": {
-    "assign_1744767857_mission_mi": {
+    "assign_1744919445_mission_mi": {
       "type": "mission",
       "template_id": "mission_1",
-      "assigned_by": "sara_summers",
-      "assigned_on": "2025-04-15T18:44:17.323709",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-04-17T12:50:45.701562",
+      "status": "pending_acceptance",
+      "quest_instances": {},
+      "task_instances": {}
+    },
+    "assign_1744920751_mission_mi": {
+      "type": "mission",
+      "template_id": "mission_2",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-04-17T13:12:31.151307",
       "status": "pending_acceptance",
       "quest_instances": {},
       "task_instances": {}

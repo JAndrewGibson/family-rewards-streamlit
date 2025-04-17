@@ -26,6 +26,57 @@
     "completion_reward": {
       "points": 400,
       "description": "Other Description"
-    }
+    },
+    "mission_combined_points": 2210
+  },
+  "mission_2": {
+    "name": "Second Mission",
+    "description": "Second Mission Description",
+    "emoji": "\ud83d\ude2c",
+    "contains_quests": [
+      "quest_4",
+      "quest_5"
+    ],
+    "contains_tasks": [
+      "task_2",
+      "task_3"
+    ],
+    "prerequisites": {
+      "quest_4": [],
+      "quest_5": [
+        "quest_4"
+      ],
+      "task_2": [
+        "quest_4"
+      ],
+      "task_3": [
+        "quest_4"
+      ]
+    },
+    "completion_reward": {
+      "points": 1500,
+      "description": "Another reward! :D"
+    },
+    "mission_combined_points": 3750
+  },
+  "mission_3": {
+    "name": "Third Mission",
+    "description": "Third Mission Description",
+    "emoji": "",
+    "contains_quests": [
+      "quest_6"
+    ],
+    "contains_tasks": [
+      "task_3"
+    ],
+    "prerequisites": {
+      "quest_6": [],
+      "task_3": []
+    },
+    "completion_reward": {
+      "points": 600,
+      "description": "Other Reward"
+    },
+    "mission_combined_points": 1150
   }
 }
