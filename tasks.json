@@ -29,5 +29,19 @@
     "points": 16,
     "emoji": "",
     "created_by": "sara_summers"
+  },
+  "task_6": {
+    "name": "Sixth Task",
+    "description": "Sixth Task Description",
+    "points": 20,
+    "emoji": "",
+    "created_by": "andrew"
+  },
+  "task_7": {
+    "name": "Seventh Task",
+    "description": "Seventh Task Description",
+    "points": 10,
+    "emoji": "",
+    "created_by": "andrew"
   }
 }

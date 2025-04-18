@@ -3,3 +3,6 @@ config.yaml
 assignments.json
 config.yaml
 quests.json
+*.json
+__pycache__/utils.cpython-310.pyc
+config.yaml

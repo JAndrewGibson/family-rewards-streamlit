@@ -229,7 +229,7 @@ def get_item_display_name(item_id, q_templates, t_templates):
         return f"Quest: {q_templates[item_id].get('name', item_id)}"
     elif item_id in t_templates:
         # Use description for tasks as they might not have a 'name'
-        return f"Task: {t_templates[item_id].get('description', item_id)}"
+        return f"Task: {t_templates[item_id].get('name', item_id)}"
     else:
         return item_id # Fallback to ID if not found
 

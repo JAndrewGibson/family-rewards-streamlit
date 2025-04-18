@@ -78,5 +78,43 @@
       "description": "Other Reward"
     },
     "mission_combined_points": 1150
+  },
+  "mission_4": {
+    "name": "Fourth Mission",
+    "description": "Fourth Mission Description",
+    "emoji": "\ud83d\udc8e",
+    "contains_quests": [
+      "quest_7",
+      "quest_8",
+      "quest_9"
+    ],
+    "contains_tasks": [
+      "task_4",
+      "task_5",
+      "task_6"
+    ],
+    "prerequisites": {
+      "quest_7": [],
+      "quest_8": [],
+      "quest_9": [
+        "quest_7",
+        "quest_8"
+      ],
+      "task_4": [
+        "quest_7",
+        "quest_8"
+      ],
+      "task_5": [
+        "task_4"
+      ],
+      "task_6": [
+        "task_5"
+      ]
+    },
+    "completion_reward": {
+      "points": 600,
+      "description": "Other Reward! :D :D :D"
+    },
+    "mission_combined_points": 5807
   }
 }

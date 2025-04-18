@@ -179,6 +179,6 @@ credentials:
 cookie:
   expiry_days: 30
   key: "bagelator" # Use your existing key
-  name: "Family Rewards Site Cookie" # Use your existing name
+  name: "Family Rewards Site Cookie"
 preauthorized:
   emails: []

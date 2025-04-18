@@ -219,5 +219,51 @@
     ],
     "completion_bonus_points": 1000,
     "quest_combined_points": 1750
+  },
+  "quest_10": {
+    "name": "Tenth Quest",
+    "description": "Tenth Quest Description",
+    "emoji": "\ud83d\ude0e",
+    "tasks": [
+      {
+        "id": "quest_10_task_1",
+        "name": "Quest 10, Task 1",
+        "description": "Quest 10, Task 1 Description",
+        "points": 300,
+        "emoji": ""
+      },
+      {
+        "id": "quest_10_task_2",
+        "name": "Quest 10, Task 2",
+        "description": "Quest 10, Task 2 Description",
+        "points": 250,
+        "emoji": ""
+      }
+    ],
+    "completion_bonus_points": 750,
+    "quest_combined_points": 1300
+  },
+  "quest_11": {
+    "name": "Eleventh Quest",
+    "description": "Eleventh Quest Description",
+    "emoji": "\ud83e\udd73",
+    "tasks": [
+      {
+        "id": "quest_11_task_1",
+        "name": "Quest 11, Task 1",
+        "description": "Quest 11, Task 1 Description",
+        "points": 550,
+        "emoji": ""
+      },
+      {
+        "id": "quest_11_task_2",
+        "name": "Quest 11, Task 2",
+        "description": "Quest 11, Task 2 Description",
+        "points": 200,
+        "emoji": ""
+      }
+    ],
+    "completion_bonus_points": 1000,
+    "quest_combined_points": 1750
   }
 }
