@@ -7,6 +7,27 @@ from pathlib import Path
 import json
 import os
 
+
+@st.dialog("First time welcome!")
+def show_first_login(role):
+    if role == 'kid':
+        st.write("Welcome to your rewards page!")
+        if st.button("Done"):
+            st.rerun()
+        st.stop()
+    if role == 'parent':
+        st.header("You made it!")
+        st.subheader("This message will only appear once, so pay attention...")
+        st.write("This is the end of the puzzle! You did it!")
+        if st.button("I've read everything. Let's see the prize!"):
+            st.rerun()
+        st.stop()
+    else:
+        pass
+    
+    
+    
+
 # --- Page Info ---
 st.set_page_config(page_title="Family Rewards", page_icon="😎")
 
@@ -91,6 +112,7 @@ elif authentication_status is True:
                     with open(history_file_path, 'w', encoding='utf-8') as f:
                         json.dump(initial_history_data, f, indent=4)
                     print(f"Created history file for {firstname} at: {history_file_path}") # Log for debugging
+                    show_first_login(st.session_state.get('role'))
                 except OSError as e:
                     st.error(f"Failed to create history file: {e}")
                     st.stop()
@@ -103,7 +125,7 @@ elif authentication_status is True:
                 "timestamp": timestamp_iso,
                 "event_type": "login",
                 "user": firstname,
-                "message": f"{firstname} logged in."
+                "message": f"{username} logged in."
             }
 
             # --- Read, Append, Write ---
@@ -385,6 +407,10 @@ elif authentication_status is True:
     else:
          st.sidebar.error("Authenticator not found.")
 
+    
+    if st.session_state.get('role') == 'admin':
+        print("Admin logged in - debug initiated")
+        show_first_login("parent")
 else: # Should not happen with current auth logic, but good practice
      st.error("Authentication status unclear. Please try logging in.")
 

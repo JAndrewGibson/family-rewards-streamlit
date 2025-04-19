@@ -77,29 +77,9 @@ else:
 
         # --- Calculate Total Points for THIS mission ---
         # Start with the base mission completion points
-        total_points = mission_template.get('completion_reward', {}).get('points', 0)
+        total_points = mission_template.get('mission_combined_points', '')
         contained_quests = mission_template.get('contains_quests', [])
         contained_tasks = mission_template.get('contains_tasks', [])
-
-        # Add points from quests (including tasks within those quests)
-        for quest_id in contained_quests:
-            quest_info = quest_templates.get(quest_id)
-            if quest_info:
-                total_points += quest_info.get('completion_bonus_points', 0)
-                tasks_in_quest = quest_info.get('tasks', [])
-                for task_ref in tasks_in_quest: # Assuming tasks_in_quest might be dicts or just IDs
-                    # Adapt this based on your task structure within quests
-                    task_id = task_ref if isinstance(task_ref, str) else task_ref.get('id') # Example if task_ref is a dict
-                    task_detail = task_templates.get(task_id)
-                    if task_detail:
-                         total_points += task_detail.get('points', 0)
-
-        # Add points from standalone tasks within the mission
-        for task_id in contained_tasks:
-            task_info = task_templates.get(task_id)
-            if task_info:
-                total_points += task_info.get('points', 0)
-        # --- End Total Points Calculation ---
 
 
         # --- Display Container for the Mission ---

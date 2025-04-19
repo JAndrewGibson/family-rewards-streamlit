@@ -6,7 +6,7 @@
       "assigned_by": "andrew",
       "assigned_on": "2025-04-17T12:50:45.701562",
       "status": "accepted",
-      "quest_instances": {},
+      "quest_instances": {"quest_1":"completed"},
       "task_instances": {}
     },
     "assign_1744920751_mission_mi": {
@@ -23,10 +23,10 @@
       "template_id": "quest_11",
       "assigned_by": "andrew",
       "assigned_on": "2025-04-18T13:00:26.312430",
-      "status": "active",
+      "status": "completed",
       "task_status": {
-        "quest_11_task_1": "pending",
-        "quest_11_task_2": "pending"
+        "quest_11_task_1": "completed",
+        "quest_11_task_2": "completed"
       }
     },
     "assign_1745006455_mission_mi": {
@@ -44,6 +44,17 @@
       "assigned_by": "andrew",
       "assigned_on": "2025-04-18T13:07:00.549513",
       "status": "pending_acceptance"
+    },
+    "assign_1745105691_9": {
+      "type": "quest",
+      "template_id": "quest_9",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-04-19T16:34:51.708806",
+      "status": "completed",
+      "task_status": {
+        "quest_9_task_1": "completed",
+        "quest_9_task_2": "completed"
+      }
     }
   }
 }

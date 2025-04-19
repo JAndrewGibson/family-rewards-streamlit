@@ -278,7 +278,7 @@ else:
                                       if utils.save_assignments(current_assignments, ASSIGNMENTS_FILE):
                                           st.session_state['assignments'] = current_assignments
                                           st.session_state['points'] = current_points # Update points in state too
-                                          st.experimental_rerun()
+                                          st.rerun()
                                       else:
                                            st.error("Failed to save progress update.")
                               # --- END BUTTON LOGIC ---
@@ -331,7 +331,7 @@ else:
                            if utils.save_assignments(current_assignments, ASSIGNMENTS_FILE):
                                st.session_state['assignments'] = current_assignments
                                st.session_state['points'] = current_points
-                               st.experimental_rerun()
+                               st.rerun()
                            else:
                                 st.error("Failed to save progress update.")
 
