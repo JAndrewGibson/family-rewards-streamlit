@@ -20,6 +20,7 @@ task_templates = st.session_state.get("task_templates")
 assignments_data = st.session_state.get("assignments")
 current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
 current_points = f"{current_points_unformatted:,}"
+POINTS_FILE = 'points.json'
 
 # File path needed for saving
 ASSIGNMENTS_FILE = 'assignments.json'
@@ -47,70 +48,241 @@ else:
         st.sidebar.error("Authenticator not found.")
 
 # --- Page Content ---
-st.title("✔️ Standalone Tasks")
-st.divider()
+if st.session_state.get('role') == 'parent' or st.session_state.get('role') == 'admin':
+    st.title("Approve Standalone Tasks")
+    config = st.session_state.get('config')
+    parent_config_details = config.get('credentials',{}).get('usernames',{}).get(username,{})
+    parent_children_usernames = parent_config_details.get('children', [])
+    for kid in parent_children_usernames:
+        kid_capitalized = kid.title()
+        with st.container(border=True):
+            st.subheader(kid_capitalized)
+            kid_assignments = assignments_data.get(kid, {})
+            for assign_id, assign_data in kid_assignments.items():
+                if assign_data.get('status') == 'awaiting approval' and assign_data.get('type') == 'standalone':
+                    task_id = assign_data.get('task_id') or assign_data.get('template_id') # Handle both keys
+                    task_template = task_templates.get(task_id)
+                    with st.container(border=True):
+                        st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                        st.caption(task_template.get('description', 'No description.'))
+                        st.markdown(f"**Points:** {task_template.get('points', 0)}")
+                        if st.button("✅ Complete task", key=f"accept_{assign_id}", use_container_width=True):
+                            # Get latest data before modifying
+                            current_assigned = utils.load_assignments(ASSIGNMENTS_FILE) # Reload from file just in case
+                            if kid in current_assigned and assign_id in current_assigned[kid]:
+                                current_assigned[kid][assign_id]['status'] = 'completed'
+                                if utils.save_assignments(current_assigned, ASSIGNMENTS_FILE): # Check if save succeeded
+                                    st.session_state['assigned_tasks'] = current_assigned # Update state
+                                    st.success(f"Task '{task_template.get('name')}' completed!")
+                                    current_points = utils.load_points(POINTS_FILE)
+                                    print(current_points)
+                                    current_points[kid] = current_points.get(kid, 0) + task_template.get('points', 0)
+                                    utils.save_points(current_points, POINTS_FILE) # Save points immediately
+                                    st.balloons()
+                                    time.sleep(2)
+                                    current_assigned = utils.load_assignments(ASSIGNMENTS_FILE)
+                                    st.rerun()
+                else:
+                    pass
+        print("END KID")
 
 kid_assignments = assignments_data.get(username, {})
+
 pending_assignments = {
     assign_id: data for assign_id, data in kid_assignments.items()
     if data.get('status') == 'pending_acceptance' and data.get('type') == 'standalone'
 }
 
-if not pending_assignments:
-    st.info("No tasks assigned at this time")
-else:
-    st.write("Review these tasks and choose to accept or decline:")
-    for assign_id, assign_data in pending_assignments.items():
-        task_id = assign_data.get('task_id') or assign_data.get('template_id') # Handle both keys
-        task_template = task_templates.get(task_id)
+active_assignments = {
+    assign_id: data for assign_id, data in kid_assignments.items()
+    if data.get('status') == 'active' and data.get('type') == 'standalone'
+}
 
-        if not task_template:
-            st.error(f"Details not found for pending task (ID: {task_id}).")
-            continue
+assignments_awaiting_approval = {
+    assign_id: data for assign_id, data in kid_assignments.items()
+    if data.get('status') == 'awaiting approval' and data.get('type') == 'standalone'
+}
 
+completed_assignments = {
+    assign_id: data for assign_id, data in kid_assignments.items()
+    if data.get('status') == 'completed' and data.get('type') == 'standalone'
+}
+
+if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
+    st.title("✔️ Standalone Tasks")
+
+    # --- TASKS WAITING ON ACCEPTANCE
+    if not pending_assignments:
         with st.container(border=True):
-            st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
-            st.caption(task_template.get('description', 'No description.'))
+            st.subheader("Tasks Awaiting Acceptance")
+            st.info("No tasks assigned at this time.")
 
-            tasks_preview = task_template.get('tasks', [])
-            with st.expander("View Tasks"):
-                if not tasks_preview:
-                     st.write("No specific tasks listed for this quest template.")
-                else:
-                    for task_prev in tasks_preview:
-                        st.write(f"- {task_prev.get('emoji','❓')} {task_prev.get('description','...')} ({task_prev.get('points',0)} pts)")
-            st.markdown(f"**Points:** {task_template.get('completion_bonus_points', 0)}")
+    else:
+        with st.container(border=True):
+            st.subheader("Tasks awaiting acceptance")
+            
+            #Creating the columns and rows
+            num_tasks = len(pending_assignments)
+            print(num_tasks)
+            max_cols = 3
+            num_cols = min(num_tasks, max_cols)
+            print(num_cols)
+            
+            if num_cols > 0:
+                cols = st.columns(num_cols)
+                col_index = 0
+            
+                for assign_id, assign_data in pending_assignments.items():
+                    task_id = assign_data.get('task_id') or assign_data.get('template_id') # Handle both keys
+                    task_template = task_templates.get(task_id)
+                    
+                    with cols[col_index % num_cols]:
+                        with st.container(border=True):
+                            st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                            st.caption(task_template.get('description', 'No description.'))
+                            st.markdown(f"**Points:** {task_template.get('points', 0)}")
 
-            # Action Buttons
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✅ Accept task", key=f"accept_{assign_id}", use_container_width=True):
-                    # Get latest data before modifying
-                    current_assigned = utils.load_assignments(ASSIGNMENTS_FILE) # Reload from file just in case
-                    if username in current_assigned and assign_id in current_assigned[username]:
-                        current_assigned[username][assign_id]['status'] = 'active'
-                        if utils.save_assignments(current_assigned, ASSIGNMENTS_FILE): # Check if save succeeded
-                            st.session_state['assigned_tasks'] = current_assigned # Update state
-                            st.success(f"Task '{task_template.get('name')}' accepted!")
-                            time.sleep(2)
-                            st.rerun()
-                        # Error message is handled within save_assigments
-                    else:
-                         st.error("Could not find assignment to accept. It might have been removed.")
+                            # Action Buttons
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.button("✅ Accept task", key=f"accept_{assign_id}", use_container_width=True):
+                                    # Get latest data before modifying
+                                    current_assigned = utils.load_assignments(ASSIGNMENTS_FILE) # Reload from file just in case
+                                    if username in current_assigned and assign_id in current_assigned[username]:
+                                        current_assigned[username][assign_id]['status'] = 'active'
+                                        if utils.save_assignments(current_assigned, ASSIGNMENTS_FILE): # Check if save succeeded
+                                            st.session_state['assigned_tasks'] = current_assigned # Update state
+                                            st.success(f"Task '{task_template.get('name')}' accepted!")
+                                            time.sleep(2)
+                                            current_assigned = utils.load_assignments(ASSIGNMENTS_FILE)
+                                            st.rerun()
+                                        # Error message is handled within save_assigments
+                                    else:
+                                        st.error("Could not find assignment to accept. It might have been removed.")
+
+                            with col2:
+                                if st.button("❌ Decline Task", key=f"decline_{assign_id}", use_container_width=True):
+                                    # Get latest data before modifying
+                                    current_assigned = utils.load_assignments(ASSIGNMENTS_FILE)
+                                    if username in current_assigned and assign_id in current_assigned[username]:
+                                        current_assigned[username][assign_id]['status'] = 'declined'
+                                        if utils.save_assignments(current_assigned, ASSIGNMENTS_FILE):
+                                            st.session_state['assigned_tasks'] = current_assigned # Update state
+                                            st.warning(f"Task '{task_template.get('name')}' declined.")
+                                            time.sleep(1)
+                                            st.rerun()
+                                        # Error message is handled within save_assignments
+                                    else:
+                                        st.error("Could not find assignment to decline. It might have been removed.")
+                        col_index += 1
 
 
-            with col2:
-                 if st.button("❌ Decline Task", key=f"decline_{assign_id}", use_container_width=True):
-                    # Get latest data before modifying
-                    current_assigned = utils.load_assignments(ASSIGNMENTS_FILE)
-                    if username in current_assigned and assign_id in current_assigned[username]:
-                        current_assigned[username][assign_id]['status'] = 'declined'
-                        if utils.save_assignments(current_assigned, ASSIGNMENTS_FILE):
-                            st.session_state['assigned_tasks'] = current_assigned # Update state
-                            st.warning(f"Task '{task_template.get('name')}' declined.")
-                            time.sleep(1)
-                            st.rerun()
-                        # Error message is handled within save_assignments
-                    else:
-                         st.error("Could not find assignment to decline. It might have been removed.")
-        st.divider()
+    # --- ACTIVE TASKS ---     
+    if not active_assignments:
+        with st.container(border=True):
+            st.subheader("Active Tasks")
+            st.info("No active tasks")
+
+    else:
+        with st.container(border=True):
+            st.subheader("Active Tasks")
+            
+            #Creating the columns and rows
+            num_tasks = len(active_assignments)
+            print(num_tasks)
+            max_cols = 3
+            num_cols = min(num_tasks, max_cols)
+            print(num_cols)
+            
+            if num_cols > 0:
+                cols = st.columns(num_cols)
+                col_index = 0
+            
+                for assign_id, assign_data in active_assignments.items():
+                    task_id = assign_data.get('task_id') or assign_data.get('template_id') # Handle both keys
+                    task_template = task_templates.get(task_id)
+                    
+                    with cols[col_index % num_cols]:
+                        with st.container(border=True):
+                            st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                            st.caption(task_template.get('description', 'No description.'))
+                            st.markdown(f"**Points:** {task_template.get('points', 0)}")
+
+                            if st.button("✅ Complete task", key=f"accept_{assign_id}", use_container_width=True):
+                                # Get latest data before modifying
+                                current_assigned = utils.load_assignments(ASSIGNMENTS_FILE) # Reload from file just in case
+                                if username in current_assigned and assign_id in current_assigned[username]:
+                                    current_assigned[username][assign_id]['status'] = 'awaiting approval'
+                                    if utils.save_assignments(current_assigned, ASSIGNMENTS_FILE): # Check if save succeeded
+                                        st.session_state['assigned_tasks'] = current_assigned # Update state
+                                        st.success(f"Task '{task_template.get('name')}' completed!")
+                                        st.balloons()
+                                        time.sleep(2)
+                                        current_assigned = utils.load_assignments(ASSIGNMENTS_FILE)
+                                        st.rerun()
+                                    # Error message is handled within save_assigments
+                                else:
+                                    st.error("Could not find assignment to accept. It might have been removed.")
+                        col_index += 1
+            
+            
+    # --- TASKS AWAITING COMPLETION APPROVAL ---
+    if not assignments_awaiting_approval:
+        with st.container(border=True):
+            st.subheader("Task awaiting approval")
+            st.info("No tasks awaiting approval.")
+
+    else:
+        with st.container(border=True):
+            st.subheader("Tasks awaiting approval")
+            #Creating the columns and rows
+            num_tasks = len(assignments_awaiting_approval)
+            print(num_tasks)
+            max_cols = 3
+            num_cols = min(num_tasks, max_cols)
+            print(num_cols)
+            
+            if num_cols > 0:
+                cols = st.columns(num_cols)
+                col_index = 0
+            
+                for assign_id, assign_data in assignments_awaiting_approval.items():
+                    task_id = assign_data.get('task_id') or assign_data.get('template_id') # Handle both keys
+                    task_template = task_templates.get(task_id)
+                    
+                    with cols[col_index % num_cols]:
+                        with st.container(border=True):
+                            st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                            st.caption(task_template.get('description', 'No description.'))
+                            st.markdown(f"**Points:** {task_template.get('points', 0)}")
+                        col_index += 1
+
+    # --- COMPLETED TASKS ---
+    if not completed_assignments:
+        with st.container(border=True):
+            st.subheader("Completed Tasks")
+            st.info("Looks like you haven't completed any tasks yet.")
+        
+    else:
+        with st.container(border=True):
+            st.subheader("Here are all of your completed assignments")
+            num_tasks = len(completed_assignments)
+            print(num_tasks)
+            max_cols = 3
+            num_cols = min(num_tasks, max_cols)
+            print(num_cols)
+            
+            if num_cols > 0:
+                cols = st.columns(num_cols)
+                col_index = 0
+            
+                for assign_id, assign_data in completed_assignments.items():
+                    task_id = assign_data.get('task_id') or assign_data.get('template_id') # Handle both keys
+                    task_template = task_templates.get(task_id)
+                    
+                    with cols[col_index % num_cols]:
+                        with st.container(border=True):
+                            st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                            st.caption(task_template.get('description', 'No description.'))
+                            st.markdown(f"**Points:** {task_template.get('points', 0)}")
+                        col_index += 1

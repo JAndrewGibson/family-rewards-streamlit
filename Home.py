@@ -102,7 +102,8 @@ elif authentication_status is True:
     if not st.session_state.get('login_event_logged', False):
         try:
             HISTORY_FOLDER.mkdir(parents=True, exist_ok=True)
-            safe_filename = f"{firstname}_history.json" # Use a safe version of the name if needed
+            safe_filename = f"{username}_history.json" # Use a safe version of the name if needed
+            print(f"Safe filename: {safe_filename}")
             history_file_path = HISTORY_FOLDER / safe_filename
 
             # --- Create history file if it doesn't exist ---
@@ -113,9 +114,10 @@ elif authentication_status is True:
                         json.dump(initial_history_data, f, indent=4)
                     print(f"Created history file for {firstname} at: {history_file_path}") # Log for debugging
                     show_first_login(st.session_state.get('role'))
-                except OSError as e:
+                except Exception as e:
                     st.error(f"Failed to create history file: {e}")
                     st.stop()
+                    
 
             # --- Log the event of user login (only if not already logged this session) ---
             now_utc = datetime.now(timezone.utc)
@@ -407,10 +409,7 @@ elif authentication_status is True:
     else:
          st.sidebar.error("Authenticator not found.")
 
-    
-    if st.session_state.get('role') == 'admin':
-        print("Admin logged in - debug initiated")
-        show_first_login("parent")
+
 else: # Should not happen with current auth logic, but good practice
      st.error("Authentication status unclear. Please try logging in.")
 

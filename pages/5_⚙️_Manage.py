@@ -43,7 +43,7 @@ quest_templates = utils.load_quest_templates(QUESTS_TEMPLATE_FILE)
 mission_templates = utils.load_mission_templates(MISSIONS_TEMPLATE_FILE)
 assignments_data = utils.load_assignments(ASSIGNED_QUESTS_FILE)
 firstname = utils.first_name(name)
-safe_filename = f"{firstname}_history.json"
+safe_filename = f"{username}_history.json"
 history_file_path = HISTORY_FOLDER / safe_filename
 
 current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
@@ -86,7 +86,6 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
     ]
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(tab_list)
 
-    # --- Manage Tasks Tab ---
     with tab1:
         st.header("📝 Standalone Task Form")
         st.write("Define individual tasks.")
@@ -134,63 +133,17 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                     # Attempt to save
                     if utils.save_task_templates(task_templates, TASKS_TEMPLATE_FILE):
                         st.success(f"Task template **{new_task_name}** - *{new_task_desc}* ({new_task_id}), saved successfully!")
-                        # --- BEGIN HISTORY LOGGING FOR TASK CREATION ---
-                        try:
-                            # Ensure firstname is available (should be if user is logged in)
-                            if not username:
-                                st.warning("Could not log task creation event: User information not found. Please screenshot and tell Andrew.")
-                            else:
-                                # Create the event data
-                                now_utc = datetime.now(timezone.utc)
-                                timestamp_iso = now_utc.isoformat()
-                                task_creation_event = {
-                                    "timestamp": timestamp_iso,
-                                    "event_type": "task_created",
-                                    "user": username,
-                                    "affected_item": new_task_id,
-                                    "message": f"{username} created new task '{new_task_name}'."
-                                }
-
-                                # --- Read current history ---
-                                current_history = []
-                                if history_file_path.is_file(): # Check if file exists before reading
-                                    try:
-                                        with open(history_file_path, 'r', encoding='utf-8') as f:
-                                            content = f.read()
-                                            if content:
-                                                current_history = json.loads(content)
-                                                if not isinstance(current_history, list):
-                                                    print(f"Warning: History file {history_file_path} was not a list. Resetting for append.") # Server log
-                                                    current_history = []
-                                            # If content is empty, current_history remains []
-                                    except json.JSONDecodeError:
-                                        print(f"Warning: History file {history_file_path} contained invalid JSON. Resetting for append.") # Server log
-                                        current_history = []
-                                    except OSError as e:
-                                        st.warning(f"Could not read history file to log task creation: {e}")
-                                        current_history = None # Signal error state
-                                # If file didn't exist, current_history remains []
-
-                                # --- Append and Write back (only if read was successful or file didn't exist) ---
-                                if current_history is not None:
-                                    current_history.append(task_creation_event)
-                                    try:
-                                        with open(history_file_path, 'w', encoding='utf-8') as f:
-                                            json.dump(current_history, f, indent=4)
-                                        print(f"Logged task_created event for {firstname}, task ID {new_task_id}. {new_task_emoji}") # Server log
-                                    except OSError as e:
-                                        st.warning(f"Could not write history file to log task creation: {e}")
-
-                        except Exception as e:
-                            # Catch any unexpected errors during history logging
-                            st.warning(f"An error occurred while logging task creation to history: {e}")
+                        if utils.log_into_history(event_type="task_created", message=f"{username} created new task '{new_task_name}'.",affected_item=new_task_id, username=username):
+                            st.success("Successfully logged task creation event!")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error("Could not log task creation. Please tell Andrew.")
                         # --- END HISTORY LOGGING FOR TASK CREATION ---
                     else:
                         # Error message handled by save function, remove potentially corrupt data
                         del task_templates[new_task_id] # Roll back change if save failed
                     
-
-    # --- Tab 2: Manage Quests ---
     with tab2:
         st.header("⚔️ Quest Form")
         st.caption("Define quests composed of multiple steps (tasks defined within).")
@@ -308,52 +261,13 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                     if utils.save_quest_templates(quest_templates, QUESTS_TEMPLATE_FILE):
                         st.success(f"Quest template **{quest_data.get('name','')}** saved successfully!")
                         # --- BEGIN HISTORY LOGGING FOR QUEST CREATION ---
-                        try:
-                            if not username:
-                                st.warning("Could not log quest creation event: User Information not found. Please screenshot and tell Andrew.")
-                            else:
-                                now_utc = datetime.now(timezone.utc)
-                                timestamp_iso = now_utc.isoformat()
-                                quest_creation_event = {
-                                    "timestamp": timestamp_iso,
-                                    "event_type": "quest_created",
-                                    "user": username,
-                                    "affected_item": new_quest_id,
-                                    "message": f"{username} created new quest '{new_quest_name}'."
-                                }
-                                
-                                current_history = []
-                                if history_file_path.is_file():
-                                    try:
-                                        with open(history_file_path, 'r', encoding='utf-8') as f:
-                                            content = f.read()
-                                            if content:
-                                                current_history = json.loads(content)
-                                                if not isinstance(current_history, list):
-                                                    print(f"Warning: History file {history_file_path} was not a list. Resetting for append.")
-                                                    current_history = []
-                                    except json.JSONDecodeError:
-                                        print(f"Warning: History file {history_file_path} contained invalid JSON. Resetting for append.")
-                                        current_history = []
-                                    except OSError as e:
-                                        st.warning(f"Could not read history file to log quest creation: {e}")
-                                        current_history = None
-                                if current_history is not None:
-                                    current_history.append(quest_creation_event)
-                                    try:
-                                        with open(history_file_path, 'w', encoding= 'utf-8') as f:
-                                            json.dump(current_history, f, indent=4)
-                                        print(f"Logged quest_created event for {firstname}, quest ID {new_quest_id}. {new_quest_emoji}")
-                                    except OSError as e:
-                                        st.warning(f"could not write history file to log quest creation: {e}")
-                        except Exception as e:
-                            st.warning(f"An error occured while logging quest creation to history: {e}")
-                    
-                        # Clear the task list in session state for the next creation
+                        if utils.log_into_history(event_type="quest_created", message=f"{username} created new quest '{new_quest_name}'.",affected_item=new_quest_id, username=username):
+                           st.success("New quest creation logged into history!")
+                           time.sleep(2)
+                           st.rerun() # Use if form fields don't clear properly
+                        else:
+                            st.error("Error logging new quest creation into history! Please tell Andrew!")
                         st.session_state.current_quest_tasks = []
-                        # We might need to rerun to clear the main form fields if clear_on_submit isn't working as expected
-                        time.sleep(2)
-                        st.rerun() # Use if form fields don't clear properly
                     else:
                         #SAVE FAILED! ROLLING BACK
                         st.error("Saving failed. Please check permissions or logs.")
@@ -365,7 +279,6 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
             st.session_state.current_quest_tasks.append({"id": "", "description": "", "points": 0, "emoji": ""})
             st.rerun()
 
-    # --- Tab 3: Manage Missions ---
     with tab3:
         st.header("🗺️ Mission Templates")
         st.write("Define large goals containing Quests and/or standalone Tasks.")
@@ -562,328 +475,262 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                     if utils.save_mission_templates(mission_templates, MISSIONS_TEMPLATE_FILE):
                         st.success(f"{mission_name} saved successfully!")
                         #Logging logic
-                        try:
-                            if not username:
-                                st.warning("Could not log mission creation event: User Information not found. Please screenshot and tell Andrew.")
-                            else:
-                                now_utc = datetime.now(timezone.utc)
-                                timestamp_iso = now_utc.isoformat()
-                                mission_creation_event = {
-                                    "timestamp": timestamp_iso,
-                                    "event_type": "mission_created",
-                                    "user": username,
-                                    "affected_item": new_mission_id,
-                                    "message": f"{username} created new mission '{new_mission_name}'."
-                                }
-
-                                current_history = []
-                                if history_file_path.is_file():
-                                    try:
-                                        with open(history_file_path, 'r', encoding='utf-8') as f:
-                                            content = f.read()
-                                            if content:
-                                                current_history = json.loads(content)
-                                                if not isinstance(current_history, list):
-                                                    print(f"Warning: History file {history_file_path} was not a list. Resetting for append.")
-                                                    current_history = []
-                                    except json.JSONDecodeError:
-                                        print(f"Warning: History file {history_file_path} contained invalid JSON. Resetting for append.")
-                                        current_history = []
-                                    except OSError as e:
-                                        st.warning(f"Could not read history file to log mission creation: {e}")
-                                        current_history = None
-                                if current_history is not None:
-                                    current_history.append(mission_creation_event)
-                                    try:
-                                        with open(history_file_path, 'w', encoding='utf-8') as f:
-                                            json.dump(current_history, f, indent=4)
-                                        print(f"Logged mission_created event for {firstname}, mission ID {new_mission_id}. {new_mission_emoji}")
-                                    except OSError as e:
-                                        st.warning(f"Could not write history file to log mission creation: {e}")
-                        except Exception as e:
-                            st.warning(f"An error occured while logging mission creation to history: {e}")
-                        time.sleep(2)
-                        st.rerun()
+                        if utils.log_into_history(event_type="mision_created", message=f"{username} created new mission '{new_mission_name}'.", affected_item=new_mission_id, username=username):
+                            st.success("New mission creation event added to history.")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error("Could not save mission creation event in history! Please tell Andrew!")
 
                     else:
                         # Save failed, roll back if needed
                         if mission_id in mission_templates: del mission_templates[mission_id]
                         # Error message is shown by save function
+     
+    with tab4:
+        st.header("Create rewards!")
+        with st.form("new_reward_form", clear_on_submit=True):
+            new_reward_id = st.text_input("Reward ID")
+            new_reward_name = st.text_input("Reward Name")
+            new_reward_description = st.text_area("Description:")
+            new_reward_points = st.number_input("Points:", min_value=0, step=1, value=0)
+            new_reward_image = st.text_input("Place the URL to the image here!", placeholder="https://fastly.picsum.photos/id/912/200/300.jpg")
+            st.caption('''Why can't you upload a photo? Because image hosting is expensive and there are a trillion images on the internet which you can use that are already hosted. 😅 AI generate one and upload it to an image hosting site if you really want a custom image.''')
+            submitted_reward = st.form_submit_button("Save Reward")
     
-    
-            with tab4:
-                st.header("Create rewards!")
-                with st.form("new_reward_form", clear_on_submit=True):
-                    new_reward_id = st.text_input("Reward ID")
-                    new_reward_name = st.text_input("Reward Name")
-                    new_reward_description = st.text_area("Description:")
-                    new_reward_points = st.number_input("Points:", min_value=0, step=1, value=0)
-                    new_reward_image = st.text_input("Place the URL to the image here!", placeholder="https://fastly.picsum.photos/id/912/200/300.jpg")
-                    st.caption('''Why can't you upload a photo? Because image hosting is expensive and there are a trillion images on the internet which you can use that are already hosted. 😅 AI generate one and upload it to an image hosting site if you really want a custom image.''')
-                    submitted_reward = st.form_submit_button("Save Reward")
-    # --- Tab 4: Assign Activities ---
-            with tab5:
-                st.header("🎯 Assign Activities to Your Child")
+    with tab5:
+        st.header("🎯 Assign Activities to Your Child")
 
-                # --- Get Parent's Children ---
-                try:
-                    parent_config_details = config['credentials']['usernames'][username]
-                    parent_children_usernames = parent_config_details.get('children', [])
-                except KeyError:
-                    st.error("Error: Could not find your configuration details.")
-                    parent_children_usernames = []
+        # --- Get Parent's Children ---
+        try:
+            parent_config_details = config['credentials']['usernames'][username]
+            parent_children_usernames = parent_config_details.get('children', [])
+        except KeyError:
+            st.error("Error: Could not find your configuration details.")
+            parent_children_usernames = []
 
-                if not parent_children_usernames:
-                    st.warning("You are not currently assigned any children to manage in the configuration.")
-                else:
-                    # --- Child Selection ---
-                    kid_display_names = {
-                        kid_un: config['credentials']['usernames'].get(kid_un, {}).get('name', kid_un)
-                        for kid_un in parent_children_usernames if kid_un in config['credentials']['usernames']
-                    }
-                    if not kid_display_names:
-                        st.warning("Assigned children not found in user configuration.")
-                    else:
-                        selected_kid_display_name = st.selectbox(
-                            "1. Select Your Child:",
-                            options=[""] + list(kid_display_names.values()),
-                            key="assign_select_child"
-                        )
-                        selected_kid_username = None
-                        for un, display_name in kid_display_names.items():
-                            if display_name == selected_kid_display_name:
-                                selected_kid_username = un
-                                break
+        if not parent_children_usernames:
+            st.warning("You are not currently assigned any children to manage in the configuration.")
+        else:
+            # --- Child Selection ---
+            kid_display_names = {
+                kid_un: config['credentials']['usernames'].get(kid_un, {}).get('name', kid_un)
+                for kid_un in parent_children_usernames if kid_un in config['credentials']['usernames']
+            }
+            if not kid_display_names:
+                st.warning("Assigned children not found in user configuration.")
+            else:
+                selected_kid_display_name = st.selectbox(
+                    "1. Select Your Child:",
+                    options=[""] + list(kid_display_names.values()),
+                    key="assign_select_child"
+                )
+                selected_kid_username = None
+                for un, display_name in kid_display_names.items():
+                    if display_name == selected_kid_display_name:
+                        selected_kid_username = un
+                        break
 
-                        if selected_kid_username: # Only proceed if a child is selected
-                            # --- Activity Type Selection ---
-                            assign_type = st.radio(
-                                "2. Select Type to Assign:",
-                                ["Standalone Task", "Quest", "Mission"],
-                                horizontal=True,
-                                key="assign_type_radio"
-                            )
+                if selected_kid_username: # Only proceed if a child is selected
+                    # --- Activity Type Selection ---
+                    assign_type = st.radio(
+                        "2. Select Type to Assign:",
+                        ["Standalone Task", "Quest", "Mission"],
+                        horizontal=True,
+                        key="assign_type_radio"
+                    )
 
-                            # --- Template Selection (Conditional) ---
-                            selected_template_id = None
-                            template_options = {}
+                    # --- Template Selection (Conditional) ---
+                    selected_template_id = None
+                    template_options = {}
 
-                            if assign_type == "Standalone Task":
-                                if not task_templates:
-                                    st.warning("No standalone task templates have been created yet.")
-                                else:
-                                    template_options = {tid: f"{tdata.get('emoji','')} {tdata.get('name', tid)} ({tdata.get('points', tid)} pts) - {tdata.get('description', tid)} ({tid})" for tid, tdata in task_templates.items()}
-                                    selected_template_display = st.selectbox(
-                                        f"3. Select {assign_type}:",
-                                        options=[""] + list(template_options.values()),
-                                        key="assign_select_task"
-                                    )
-                                    for tid, display in template_options.items():
-                                        if display == selected_template_display:
-                                            selected_template_id = tid
-                                            break
-
-                            elif assign_type == "Quest":
-                                if not quest_templates:
-                                    st.warning("No quest templates have been created yet.")
-                                else:
-                                    template_options = {qid: f"{qdata.get('emoji','')} {qdata.get('name', qid)} ({qdata.get('quest_combined_points', qid)} pts) - {qdata.get('description', qid)} ({qid})" for qid, qdata in quest_templates.items()}
-                                    selected_template_display = st.selectbox(
-                                        f"3. Select {assign_type}:",
-                                        options=[""] + list(template_options.values()),
-                                        key="assign_select_quest"
-                                    )
-                                    for qid, display in template_options.items():
-                                        if display == selected_template_display:
-                                            selected_template_id = qid
-                                            break
-
-                            elif assign_type == "Mission":
-                                if not mission_templates:
-                                    st.warning("No mission templates have been created yet.")
-                                else:
-                                    template_options = {mid: f"{mdata.get('emoji','')} {mdata.get('name', mid)} ({mdata.get('mission_combined_points', mid)} pts) - {mdata.get('description', mid)} ({mid})" for mid, mdata in mission_templates.items()}
-                                    selected_template_display = st.selectbox(
-                                        f"3. Select {assign_type}:",
-                                        options=[""] + list(template_options.values()),
-                                        key="assign_select_mission"
-                                    )
-                                    for mid, display in template_options.items():
-                                        if display == selected_template_display:
-                                            selected_template_id = mid
-                                            break
-
-                            # --- Assign Button ---
-                            st.divider()
-                            if st.button("Assign Activity", key="assign_button", disabled=(not selected_template_id)):
-                                if selected_kid_username and selected_template_id and assign_type:
-                                    # Generate assignment ID
-                                    type_prefix = assign_type.split()[0].lower() # task, quest, or mission
-                                    assignment_id = utils.generate_assignment_id(f"{type_prefix}_{selected_template_id}")
-
-                                    # Prepare base assignment data
-                                    new_assignment_data = {
-                                        "type": type_prefix,
-                                        "template_id": selected_template_id,
-                                        "assigned_by": username, # Logged-in parent username
-                                        "assigned_on": datetime.now().isoformat(),
-                                        "status": "pending_acceptance"
-                                    }
-
-                                    # Add type-specific data (task_status for quests)
-                                    if type_prefix == "quest":
-                                        quest_template_tasks = quest_templates.get(selected_template_id, {}).get('tasks', [])
-                                        new_assignment_data["task_status"] = {
-                                            task['id']: "pending" for task in quest_template_tasks if 'id' in task
-                                        }
-                                    elif type_prefix == "mission":
-                                        # For missions, initially no instances needed, just link the template
-                                        new_assignment_data["quest_instances"] = {}
-                                        new_assignment_data["task_instances"] = {}
-
-
-                                    # --- Save the Assignment ---
-                                    # Load fresh data just before saving
-                                    current_assignments = utils.load_assignments(ASSIGNED_QUESTS_FILE)
-                                    if current_assignments is None:
-                                        st.error("Failed to load current assignments before saving.")
-                                    else:
-                                        # Ensure kid key exists
-                                        if selected_kid_username not in current_assignments:
-                                            current_assignments[selected_kid_username] = {}
-
-                                        # Add the new assignment
-                                        current_assignments[selected_kid_username][assignment_id] = new_assignment_data
-
-                                        # Attempt to save
-                                        if utils.save_assignments(current_assignments, ASSIGNED_QUESTS_FILE):
-                                            st.session_state['assigned_quests'] = current_assignments # Update session state
-                                            #logging logic
-                                            try:
-                                                if not username:
-                                                    st.warning("Could not log assignment event: User Information not found. Please screenshot and tell Andrew.")
-                                                else:
-                                                    now_utc = datetime.now(timezone.utc)
-                                                    timestamp_iso = now_utc.isoformat()
-                                                    assignment_event = {
-                                                        "timestamp": timestamp_iso,
-                                                        "event_type": f"{type_prefix}_assigned",
-                                                        "user": username,
-                                                        "affected_item": selected_template_id,
-                                                        "message": f"{username} assigned new {type_prefix} to {selected_kid_username}",
-                                                    }
-                                                    
-                                                    current_history = []
-                                                    if history_file_path.is_file():
-                                                        try:
-                                                            with open(history_file_path, 'r', encoding='utf-8') as f:
-                                                                content = f.read()
-                                                                if content:
-                                                                    current_history = json.loads(content)
-                                                                    if not isinstance(current_history, list):
-                                                                        print(f"Warning: History file {history_file_path} was not a list. Resetting for append.")
-                                                                        current_history = []
-                                                        except json.JSONDecodeError:
-                                                            print(f"Warning: History file {history_file_path} was not a list. Resetting for append.")
-                                                            current_history = []
-                                                        except OSError as e:
-                                                            st.warning(f"Could not read history file to log assignment: {e}")
-                                                            current_history = None
-                                                    if current_history is not None:
-                                                        current_history.append(assignment_event)
-                                                        try:
-                                                            with open(history_file_path, 'w', encoding='utf-8') as f:
-                                                                json.dump(current_history, f, indent=4)
-                                                            print(f"Logged assignment event for {firstname}, {selected_template_id}.")
-                                                        except OSError as e:
-                                                            st.warning(f"Could not write history file to log mission creation: {e}")
-                                            except Exception as e:
-                                                st.warning(f"An error occured while logging assignment to history: {e}")
-                                            st.success(f"{assign_type} '{template_options.get(selected_template_id, selected_template_id)}' assigned to {selected_kid_display_name} for acceptance!")
-                                            time.sleep(2)
-                                            st.rerun()
-
-                                else:
-                                    st.warning("Please ensure a child and an activity template are selected.")
-                with tab6:
-                    if st.session_state.get('role'):
-                        st.header("EVENT HISTORY") # Moved header inside the check for consistency
-
-                        # Ensure we have the user's firstname
-                        if not firstname:
-                            st.warning("Cannot display history: User information not found.")
+                    if assign_type == "Standalone Task":
+                        if not task_templates:
+                            st.warning("No standalone task templates have been created yet.")
                         else:
-                            try:
-                                # Construct the path to the user's history file
-                                safe_filename = f"{firstname}_history.json"
-                                history_file_path = HISTORY_FOLDER / safe_filename
+                            template_options = {tid: f"{tdata.get('emoji','')} {tdata.get('name', tid)} ({tdata.get('points', tid)} pts) - {tdata.get('description', tid)} ({tid})" for tid, tdata in task_templates.items()}
+                            selected_template_display = st.selectbox(
+                                f"3. Select {assign_type}:",
+                                options=[""] + list(template_options.values()),
+                                key="assign_select_task"
+                            )
+                            for tid, display in template_options.items():
+                                if display == selected_template_display:
+                                    selected_template_id = tid
+                                    break
 
-                                # Check if the history file exists
-                                if history_file_path.is_file():
-                                    # Read the content of the history file
-                                    with open(history_file_path, 'r', encoding='utf-8') as f:
-                                        content = f.read()
+                    elif assign_type == "Quest":
+                        if not quest_templates:
+                            st.warning("No quest templates have been created yet.")
+                        else:
+                            template_options = {qid: f"{qdata.get('emoji','')} {qdata.get('name', qid)} ({qdata.get('quest_combined_points', qid)} pts) - {qdata.get('description', qid)} ({qid})" for qid, qdata in quest_templates.items()}
+                            selected_template_display = st.selectbox(
+                                f"3. Select {assign_type}:",
+                                options=[""] + list(template_options.values()),
+                                key="assign_select_quest"
+                            )
+                            for qid, display in template_options.items():
+                                if display == selected_template_display:
+                                    selected_template_id = qid
+                                    break
 
-                                    # Check if the file is empty before trying to parse JSON
-                                    if not content:
-                                        st.info("No history events recorded yet.")
-                                    else:
-                                        # Parse the JSON data
-                                        history_data = json.loads(content)
+                    elif assign_type == "Mission":
+                        if not mission_templates:
+                            st.warning("No mission templates have been created yet.")
+                        else:
+                            template_options = {mid: f"{mdata.get('emoji','')} {mdata.get('name', mid)} ({mdata.get('mission_combined_points', mid)} pts) - {mdata.get('description', mid)} ({mid})" for mid, mdata in mission_templates.items()}
+                            selected_template_display = st.selectbox(
+                                f"3. Select {assign_type}:",
+                                options=[""] + list(template_options.values()),
+                                key="assign_select_mission"
+                            )
+                            for mid, display in template_options.items():
+                                if display == selected_template_display:
+                                    selected_template_id = mid
+                                    break
 
-                                        # Check if the loaded data is a list (expected format)
-                                        if not isinstance(history_data, list):
-                                            st.error("History file format is incorrect. Expected a list of events.")
-                                            print(f"Error: History file {history_file_path} is not a list.") # Server log
-                                        # Check if the list is empty
-                                        elif not history_data:
-                                            st.info("No history events recorded yet.")
-                                        else:
-                                            # --- Convert to Pandas DataFrame ---
-                                            df_history = pd.DataFrame(history_data)
+                    # --- Assign Button ---
+                    st.divider()
+                    if st.button("Assign Activity", key="assign_button", disabled=(not selected_template_id)):
+                        if selected_kid_username and selected_template_id and assign_type:
+                            # Generate assignment ID
+                            type_prefix = assign_type.split()[0].lower() # task, quest, or mission
+                            assignment_id = utils.generate_assignment_id(f"{type_prefix}_{selected_template_id}")
 
-                                            # --- Optional: Data Cleaning and Formatting ---
+                            # Prepare base assignment data
+                            new_assignment_data = {
+                                "type": type_prefix,
+                                "template_id": selected_template_id,
+                                "assigned_by": username, # Logged-in parent username
+                                "assigned_on": datetime.now().isoformat(),
+                                "status": "pending_acceptance"
+                            }
 
-                                            # 1. Convert timestamp string to datetime objects (optional but good practice)
-                                            #    Errors='coerce' will turn unparseable timestamps into NaT (Not a Time)
-                                            if 'timestamp' in df_history.columns:
-                                                df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce')
+                            # Add type-specific data (task_status for quests)
+                            if type_prefix == "quest":
+                                quest_template_tasks = quest_templates.get(selected_template_id, {}).get('tasks', [])
+                                new_assignment_data["task_status"] = {
+                                    task['id']: "pending" for task in quest_template_tasks if 'id' in task
+                                }
+                            elif type_prefix == "mission":
+                                # For missions, initially no instances needed, just link the template
+                                new_assignment_data["quest_instances"] = {}
+                                new_assignment_data["task_instances"] = {}
 
-                                            # 2. Sort by timestamp (most recent first)
-                                            if 'timestamp' in df_history.columns:
-                                                df_history = df_history.sort_values(by='timestamp', ascending=False)
 
-                                            # 3. Select and reorder columns for display (adjust as needed)
-                                            #    Include all likely columns; Pandas handles missing ones with NaN/None
-                                            display_columns = ['timestamp', 'event_type', 'message', 'affected_item', 'user']
-                                            # Filter to keep only columns that actually exist in the DataFrame
-                                            existing_columns = [col for col in display_columns if col in df_history.columns]
-                                            df_display = df_history[existing_columns]
+                            # --- Save the Assignment ---
+                            # Load fresh data just before saving
+                            current_assignments = utils.load_assignments(ASSIGNED_QUESTS_FILE)
+                            if current_assignments is None:
+                                st.error("Failed to load current assignments before saving.")
+                            else:
+                                # Ensure kid key exists
+                                if selected_kid_username not in current_assignments:
+                                    current_assignments[selected_kid_username] = {}
 
-                                            # --- Display the DataFrame ---
-                                            st.dataframe(
-                                                df_display,
-                                                use_container_width=True, # Make table use full tab width
-                                                hide_index=True # Hide the default numerical index
-                                                )
-                                            # Alternatively, use st.write(df_display) for a static table
+                                # Add the new assignment
+                                current_assignments[selected_kid_username][assignment_id] = new_assignment_data
 
-                                else:
-                                    # File doesn't exist for this user
-                                    st.info(f"No history found for user '{firstname}'.")
+                                # Attempt to save
+                                try:
+                                    utils.save_assignments(current_assignments, ASSIGNED_QUESTS_FILE)
+                                    print("DEBUG SAVED ASSIGNMENT")
+                                    st.session_state['assigned_quests'] = current_assignments # Update session state
+                                    print("SAVE NEW SESSION STATE")
+                                    utils.log_into_history(event_type=f"{type_prefix}_assigned", message=(f"{username} assigned new {type_prefix} to {selected_kid_username}"), affected_item=selected_template_id, username=username)
+                                    print("DEBUG: logged event")
+                                    st.success(f"{assign_type} '{template_options.get(selected_template_id, selected_template_id)}' assigned to {selected_kid_display_name} for acceptance!")
+                                    print("DEBUG: NOW WAIT...")
+                                    time.sleep(2)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Failed to create history file: {e}")
+                                    print("THERE'S AN EXCEPTION")
+                                    st.error("Failed to save assignment - please screenshot this and send it to Andrew.")
+                                    st.stop()
 
-                            except json.JSONDecodeError:
-                                st.error("Failed to read history file: Invalid format.")
-                                print(f"Error: JSONDecodeError reading {history_file_path}") # Server log
-                            except FileNotFoundError:
-                                # This case is handled by the is_file() check above, but good practice
-                                st.info(f"No history found for user '{firstname}'.")
-                            except OSError as e:
-                                st.error(f"An error occurred while accessing history file: {e}")
-                                print(f"Error: OSError accessing {history_file_path}: {e}") # Server log
-                            except Exception as e:
-                                st.error(f"An unexpected error occurred while displaying history: {e}")
-                                print(f"Error: Unexpected error displaying history for {firstname}: {e}") # Server log
+                        else:
+                            st.warning("Please ensure a child and an activity template are selected.")
+    
+    with tab6:
+        if st.session_state.get('role'):
+            st.header("EVENT HISTORY") # Moved header inside the check for consistency
+
+            # Ensure we have the user's firstname
+            if not firstname:
+                st.warning("Cannot display history: User information not found.")
+            else:
+                try:
+                    # Construct the path to the user's history file
+                    safe_filename = f"{firstname}_history.json"
+                    history_file_path = HISTORY_FOLDER / safe_filename
+
+                    # Check if the history file exists
+                    if history_file_path.is_file():
+                        # Read the content of the history file
+                        with open(history_file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+
+                        # Check if the file is empty before trying to parse JSON
+                        if not content:
+                            st.info("No history events recorded yet.")
+                        else:
+                            # Parse the JSON data
+                            history_data = json.loads(content)
+
+                            # Check if the loaded data is a list (expected format)
+                            if not isinstance(history_data, list):
+                                st.error("History file format is incorrect. Expected a list of events.")
+                                print(f"Error: History file {history_file_path} is not a list.") # Server log
+                            # Check if the list is empty
+                            elif not history_data:
+                                st.info("No history events recorded yet.")
+                            else:
+                                # --- Convert to Pandas DataFrame ---
+                                df_history = pd.DataFrame(history_data)
+
+                                # --- Optional: Data Cleaning and Formatting ---
+
+                                # 1. Convert timestamp string to datetime objects (optional but good practice)
+                                #    Errors='coerce' will turn unparseable timestamps into NaT (Not a Time)
+                                if 'timestamp' in df_history.columns:
+                                    df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce')
+
+                                # 2. Sort by timestamp (most recent first)
+                                if 'timestamp' in df_history.columns:
+                                    df_history = df_history.sort_values(by='timestamp', ascending=False)
+
+                                # 3. Select and reorder columns for display (adjust as needed)
+                                #    Include all likely columns; Pandas handles missing ones with NaN/None
+                                display_columns = ['timestamp', 'event_type', 'message', 'affected_item', 'user']
+                                # Filter to keep only columns that actually exist in the DataFrame
+                                existing_columns = [col for col in display_columns if col in df_history.columns]
+                                df_display = df_history[existing_columns]
+
+                                # --- Display the DataFrame ---
+                                st.dataframe(
+                                    df_display,
+                                    use_container_width=True, # Make table use full tab width
+                                    hide_index=True # Hide the default numerical index
+                                    )
+                                # Alternatively, use st.write(df_display) for a static table
+
+                    else:
+                        # File doesn't exist for this user
+                        st.info(f"No history found for user '{firstname}'.")
+
+                except json.JSONDecodeError:
+                    st.error("Failed to read history file: Invalid format.")
+                    print(f"Error: JSONDecodeError reading {history_file_path}") # Server log
+                except FileNotFoundError:
+                    # This case is handled by the is_file() check above, but good practice
+                    st.info(f"No history found for user '{firstname}'.")
+                except OSError as e:
+                    st.error(f"An error occurred while accessing history file: {e}")
+                    print(f"Error: OSError accessing {history_file_path}: {e}") # Server log
+                except Exception as e:
+                    st.error(f"An unexpected error occurred while displaying history: {e}")
+                    print(f"Error: Unexpected error displaying history for {firstname}: {e}") # Server log
 
                                     
 # --- KID/ADMIN ---

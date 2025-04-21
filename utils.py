@@ -1,8 +1,8 @@
-# utils.py
-
 import streamlit as st
 import json
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 # --- File Constants (Define them here or pass as arguments) ---
 # It's often better to define filenames in the main script or pages
@@ -364,3 +364,53 @@ def generate_assignment_id(quest_id):
     timestamp = int(time.time())
     short_quest_id = quest_id.replace("quest_", "")[:10]
     return f"assign_{timestamp}_{short_quest_id}"
+
+
+def log_into_history(event_type, message, affected_item, username):
+    safe_filename = f"{username}_history.json"
+    HISTORY_FOLDER = Path("user_history")
+    HISTORY_FOLDER.mkdir(parents=True, exist_ok=True)
+    history_file_path = HISTORY_FOLDER / safe_filename
+    try:
+        if not username:
+            st.warning("Could not log assignment event: User Information not found. Please screenshot and tell Andrew.")
+        else:
+            now_utc = datetime.now(timezone.utc)
+            timestamp_iso = now_utc.isoformat()
+            assignment_event = {
+                "timestamp": timestamp_iso,
+                "event_type": event_type,
+                "user": username,
+                "affected_item": affected_item,
+                "message": message,
+            }
+            
+            current_history = []
+            if history_file_path.is_file():
+                try:
+                    with open(history_file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        if content:
+                            current_history = json.loads(content)
+                            if not isinstance(current_history, list):
+                                print(f"Warning: History file {history_file_path} was not a list. Resetting for append.")
+                                current_history = []
+                except json.JSONDecodeError:
+                    print(f"Warning: History file {history_file_path} was not a list. Resetting for append.")
+                    current_history = []
+                except OSError as e:
+                    st.warning(f"Could not read history file to log assignment: {e}")
+                    current_history = None
+            else:
+                st.error("History file not found!")
+            if current_history is not None:
+                current_history.append(assignment_event)
+                try:
+                    with open(history_file_path, 'w', encoding='utf-8') as f:
+                        json.dump(current_history, f, indent=4)
+                except OSError as e:
+                    st.warning(f"Could not write history file to log mission creation: {e}")
+            else:
+                st.error("Current history is none.")
+    except Exception as e:
+        st.warning(f"An error occured while logging assignment to history: {e}")
