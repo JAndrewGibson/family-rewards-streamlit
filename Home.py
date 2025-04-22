@@ -114,10 +114,9 @@ elif authentication_status is True:
                         json.dump(initial_history_data, f, indent=4)
                     print(f"Created history file for {firstname} at: {history_file_path}") # Log for debugging
                     show_first_login(st.session_state.get('role'))
-                except Exception as e:
+                except OSError as e:
                     st.error(f"Failed to create history file: {e}")
                     st.stop()
-                    
 
             # --- Log the event of user login (only if not already logged this session) ---
             now_utc = datetime.now(timezone.utc)
@@ -126,7 +125,7 @@ elif authentication_status is True:
             login_event = {
                 "timestamp": timestamp_iso,
                 "event_type": "login",
-                "user": firstname,
+                "user": username,
                 "message": f"{username} logged in."
             }
 
@@ -285,69 +284,69 @@ elif authentication_status is True:
                          # --- Display Column Content ---
                          with cols[col_index % num_cols]:
                               # Display Points Metric
-                              st.write(child_name)
-                              st.write(f"Birthday: {child_birthday}")
-                              st.metric(label=f"👤 {child_firstname}'s points", value=f"{child_points_formatted} pts")
-                              
-                              # --- Expander for Child's Activities ---
-                              with st.expander(f"View {child_firstname}'s Activities", expanded=False):
-                                  child_assignments = assignments_data.get(child_username, {})
+                              with st.container(border=True, height=450):
+                                st.subheader(child_name)
+                                st.write(f"Birthday: {child_birthday}")
+                                st.metric(label=f"👤 {child_firstname}'s points", value=f"{child_points_formatted} pts")
+                                
+                                # --- Expander for Child's Activities ---
+                                with st.expander(f"View {child_firstname}'s Activities", expanded=False):
+                                    child_assignments = assignments_data.get(child_username, {})
 
-                                  if not child_assignments:
-                                      st.caption("No activities currently assigned.")
-                                  else:
-                                      # Prepare lists to categorize
-                                      missions_list = []
-                                      quests_list = []
-                                      tasks_list = []
+                                    if not child_assignments:
+                                        st.caption("No activities currently assigned.")
+                                    else:
+                                        # Prepare lists to categorize
+                                        missions_list = []
+                                        quests_list = []
+                                        tasks_list = []
 
-                                      # Categorize assignments
-                                      for assign_id, assign_data in child_assignments.items():
-                                          item_type = assign_data.get("type")
-                                          template_id = assign_data.get("template_id")
-                                          status = assign_data.get("status", "Unknown")
-                                          info = {"id": template_id, "status": status.replace('_',' ').capitalize()} # Basic info
+                                        # Categorize assignments
+                                        for assign_id, assign_data in child_assignments.items():
+                                            item_type = assign_data.get("type")
+                                            template_id = assign_data.get("template_id")
+                                            status = assign_data.get("status", "Unknown")
+                                            info = {"id": template_id, "status": status.replace('_',' ').capitalize()} # Basic info
 
-                                          if item_type == "mission" and template_id:
-                                               template = mission_templates.get(template_id, {})
-                                               info["name"] = template.get("name", template_id)
-                                               info["emoji"] = template.get("emoji", "🗺️")
-                                               missions_list.append(info)
-                                          elif item_type == "quest" and template_id:
-                                               template = quest_templates.get(template_id, {})
-                                               info["name"] = template.get("name", template_id)
-                                               info["emoji"] = template.get("emoji", "⚔️")
-                                               quests_list.append(info)
-                                          elif item_type == "task" and template_id:
-                                               template = task_templates.get(template_id, {})
-                                               info["name"] = template.get("description", template_id) # Use description for task name
-                                               info["emoji"] = template.get("emoji", "📝")
-                                               tasks_list.append(info)
+                                            if item_type == "mission" and template_id:
+                                                template = mission_templates.get(template_id, {})
+                                                info["name"] = template.get("name", template_id)
+                                                info["emoji"] = template.get("emoji", "🗺️")
+                                                missions_list.append(info)
+                                            elif item_type == "quest" and template_id:
+                                                template = quest_templates.get(template_id, {})
+                                                info["name"] = template.get("name", template_id)
+                                                info["emoji"] = template.get("emoji", "⚔️")
+                                                quests_list.append(info)
+                                            elif item_type == "task" or item_type == "standalone" and template_id:
+                                                template = task_templates.get(template_id, {})
+                                                info["name"] = template.get("description", template_id) # Use description for task name
+                                                info["emoji"] = template.get("emoji", "📝")
+                                                tasks_list.append(info)
+                                        # Display categorized lists
+                                        if missions_list:
+                                            st.write("---")
+                                            st.markdown("**Missions:**")
+                                            for item in missions_list:
+                                                st.echo(f"{st.badge(item['status'])}")
+                                                st.write(f"- {item['emoji']} {item['name']}")
+                                                    
+                                            
+                                        if quests_list:
+                                            st.write("---")
+                                            st.markdown("**Standalone Quests:**")
+                                            for item in quests_list:
+                                                st.write(f"- {item['emoji']} {item['name']} *(Status: {item['status']})*")
+                                            
+                                        if tasks_list:
+                                            st.write("---")
+                                            st.markdown("**Standalone Tasks:**")
+                                            for item in tasks_list:
+                                                st.write(f"- {item['emoji']} {item['name']} *(Status: {item['status']})*")
 
-                                      # Display categorized lists
-                                      if missions_list:
-                                        st.write("---")
-                                        st.markdown("**Missions:**")
-                                        for item in missions_list:
-                                            st.echo(f"{st.badge(item['status'])}")
-                                            st.write(f"- {item['emoji']} {item['name']}")
-                                                
-                                          
-                                      if quests_list:
-                                          st.write("---")
-                                          st.markdown("**Standalone Quests:**")
-                                          for item in quests_list:
-                                              st.write(f"- {item['emoji']} {item['name']} *(Status: {item['status']})*")
-                                          
-                                      if tasks_list:
-                                          st.write("---")
-                                          st.markdown("**Standalone Tasks:**")
-                                          for item in tasks_list:
-                                               st.write(f"- {item['emoji']} {item['name']} *(Status: {item['status']})*")
-
-                                      if not missions_list and not quests_list and not tasks_list:
-                                           st.caption("Could not categorize assigned activities.") # Fallback
-                              # --- !!! END EXPANDER !!! ---
+                                        if not missions_list and not quests_list and not tasks_list:
+                                            st.caption("Could not categorize assigned activities.") # Fallback
+                                # --- !!! END EXPANDER !!! ---
 
                          col_index += 1
 
@@ -376,6 +375,8 @@ elif authentication_status is True:
                         completed_quests += 1
                     elif item_type == 'task':
                         # This counts completed *standalone* Task assignments
+                        completed_tasks += 1
+                    elif item_type == 'standalone':
                         completed_tasks += 1
             # Note: This doesn't count individual task steps completed within quests/missions,
             # only the completion of the overall assigned item.

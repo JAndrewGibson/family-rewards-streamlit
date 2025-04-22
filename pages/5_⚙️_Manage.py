@@ -657,12 +657,12 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
             st.header("EVENT HISTORY") # Moved header inside the check for consistency
 
             # Ensure we have the user's firstname
-            if not firstname:
+            if not username:
                 st.warning("Cannot display history: User information not found.")
             else:
                 try:
                     # Construct the path to the user's history file
-                    safe_filename = f"{firstname}_history.json"
+                    safe_filename = f"{username}_history.json"
                     history_file_path = HISTORY_FOLDER / safe_filename
 
                     # Check if the history file exists
@@ -751,7 +751,7 @@ if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'adm
             else:
                 try:
                     # Construct the path to the user's history file
-                    safe_filename = f"{firstname}_history.json"
+                    safe_filename = f"{username}_history.json"
                     history_file_path = HISTORY_FOLDER / safe_filename
 
                     # Check if the history file exists
