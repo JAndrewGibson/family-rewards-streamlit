@@ -13,3 +13,4 @@ __pycache__/utils.cpython-310.pyc
 assignments.json
 assignments.json
 *.pyc
+/.venv
