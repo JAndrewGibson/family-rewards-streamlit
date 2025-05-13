@@ -4,7 +4,7 @@ credentials:
     
     joseph_jackson:
       email: josephchavezjackson@gmail.com
-      name: "Joseph Jackson"
+      name: "Joseph Nathan Jackson"
       password: "$2b$12$1CaowrDHUqWT1LlWkrIuquZA331s3H9sOFs6JtIl888joaS3.vTjG"
       role: "parent"
       children:
@@ -15,7 +15,7 @@ credentials:
     
     sara_summers:
       email: 7inwhite@gmail.com
-      name: "Sara Summers"
+      name: "Sara Marie Summers"
       password: "$2b$12$bJjLJMHeHRUcwf1bBg9yOOdOzJsryzdLZCWQU7tVDEYfPTDdbt92m"
       role: "parent"
       children:
@@ -74,7 +74,6 @@ credentials:
       name: "Audrey Rain Chavez-Jackson"
       password: "$2b$12$yQnDeKvlwaWpVj8isf5WO..Laj./boEfw8gRZXp0Fhl9C6K.wk5gS"
       role: "kid"
-      #birthday: "4/15/2015"
       birthday: "7/18/2015"
       timezone: America/Anchorage
     samual chavez-jackson:
@@ -146,7 +145,7 @@ credentials:
       name: "Andrew Gibson"
       password: "$2b$12$sZY03kawgXpEXaoBvoF6xOV9CkvBVZmZ8FcSHht/5FTuIPGwqvWC."
       role: "admin"
-      birthday: "4/15/1995"
+      birthday: "5/09/1995"
       children:
         - audrey chavez-jackson
         - samual chavez-jackson

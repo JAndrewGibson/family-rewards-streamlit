@@ -3,6 +3,7 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+import utils
 
 # --- File Constants (Define them here or pass as arguments) ---
 # It's often better to define filenames in the main script or pages
@@ -11,6 +12,58 @@ TASKS_TEMPLATE_FILE = 'tasks.json'
 QUESTS_TEMPLATE_FILE = 'quests.json'
 MISSIONS_TEMPLATE_FILE = 'missions.json'
 ASSIGNED_QUESTS_FILE = 'assigned_quests.json'
+ASSIGNMENTS_FILE = 'assignments.json'
+
+def load_config(path):
+    """Loads the YAML configuration file."""
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            # Use safe_load to avoid arbitrary code execution
+            config_data = yaml.safe_load(f)
+            # Handle empty file case
+            if config_data is None:
+                return {}
+            return config_data
+    except FileNotFoundError:
+        st.error(f"Error: Configuration file not found at '{path}'.")
+        return None
+    except yaml.YAMLError as e:
+        st.error(f"Error parsing configuration file: {e}")
+        return None
+    except Exception as e:
+        st.error(f"An unexpected error occurred loading config: {e}")
+        return None
+
+def save_config(path, data):
+    """Saves the data dictionary back to the YAML configuration file."""
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            # default_flow_style=False gives block style, sort_keys=False preserves order somewhat
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        return True
+    except PermissionError:
+        st.error(f"Error: Permission denied writing to configuration file '{path}'.")
+        return False
+    except Exception as e:
+        st.error(f"An unexpected error occurred saving config: {e}")
+        return False
+
+@st.dialog("First time welcome!")
+def show_first_login(role):
+    if role == 'kid':
+        st.write("Welcome to your rewards page!")
+        if st.button("Done"):
+            st.rerun()
+        st.stop()
+    if role == 'parent':
+        st.header("You made it!")
+        st.subheader("This message will only appear once, so pay attention...")
+        st.write("This is the end of the puzzle! You did it!")
+        if st.button("I've read everything. Let's see the prize!"):
+            st.rerun()
+        st.stop()
+    else:
+        pass
 
 def check_and_complete_quest_instance(kid_username, assign_id, quest_id, assignments_data, points_data, quest_templates):
     """
@@ -263,6 +316,306 @@ def save_task_templates(data, filename):
         st.error(f"❌ An unexpected error occurred saving task templates: {e}")
         return False
 
+def display_duties(
+    duties_dict: dict,
+    duty_templates: dict,
+    current_user_id: str,
+    assignments_file_path: str,
+    history_file_path: str,
+    section_title: str,
+    empty_message: str,
+    show_buttons: str = None, # 'accept_decline', 'complete', 'awaiting', 'completed', 'declined'
+    duty_type_singular: str = "Duty", # e.g., "Task", "Quest"
+    # duty_type_plural: str = "Duties" # e.g., "Tasks", "Quests" - can be derived if needed
+):
+    """
+    Displays a collection of duties (tasks, quests, etc.) in a structured layout.
+
+    Args:
+        duties_dict: Dictionary of assignments for the current section (e.g., pending_tasks).
+        duty_templates: Dictionary of all available templates (e.g., task_templates, quest_templates).
+        current_user_id: The username of the child currently interacting.
+        assignments_file_path: Path to the assignments.json file.
+        history_file_path: Path to the history_log.json file.
+        section_title: Title for this section of duties.
+        empty_message: Message to display if duties_dict is empty.
+        show_buttons: Controls which buttons are displayed ('accept_decline', 'complete', 'awaiting', 'completed', 'declined').
+        duty_type_singular: The singular name for the type of duty being displayed (e.g., "Task", "Quest").
+    """
+    st.subheader(section_title)
+    if not duties_dict:
+        st.info(empty_message)
+        return
+
+    with st.container(border=True):
+        num_duties = len(duties_dict)
+        max_cols = 3
+        num_cols = min(num_duties, max_cols)
+        cols = st.columns(num_cols)
+        col_idx = 0
+
+        for assign_id, assign_data in duties_dict.items():
+            # Determine the ID of the task/quest template
+            # Prioritize specific IDs, then fall back to a generic 'template_id'
+            template_id = assign_data.get(f"{duty_type_singular.lower()}_id") or \
+                          assign_data.get('template_id') or \
+                          assign_data.get('task_id') # Keep task_id as a common fallback
+
+            duty_template = duty_templates.get(template_id)
+
+            if not duty_template:
+                st.warning(
+                    f"{duty_type_singular} template '{template_id}' not found for assignment '{assign_id}'. Skipping."
+                )
+                continue
+
+            duty_name = duty_template.get('name', f'Unnamed {duty_type_singular}')
+            duty_emoji = duty_template.get('emoji', '❓')
+            duty_description = duty_template.get('description', 'No description.')
+            duty_points = duty_template.get('points', 0)
+
+            with cols[col_idx % num_cols]:
+                with st.container(border=True):
+                    st.subheader(f"{duty_emoji} {duty_name}")
+                    st.caption(duty_description)
+                    st.markdown(f"**Points:** {duty_points:,}")
+
+                    # --- Action Buttons ---
+                    button_key_prefix = f"{show_buttons}_{duty_type_singular.lower()}_{assign_id}"
+
+                    if show_buttons == 'accept_decline':
+                        b_col1, b_col2 = st.columns(2)
+                        with b_col1:
+                            if st.button("✅ Accept", key=f"accept_{button_key_prefix}", use_container_width=True):
+                                current_assignments_state = st.session_state.get("assignments", {})
+                                if current_user_id in current_assignments_state and \
+                                   assign_id in current_assignments_state[current_user_id]:
+                                    current_assignments_state[current_user_id][assign_id]['status'] = 'active'
+                                    if save_assignments(current_assignments_state, assignments_file_path):
+                                        st.success(f"{duty_type_singular} '{duty_name}' accepted!")
+                                        log_into_history(
+                                            event_type=f"{duty_type_singular.lower()}_accepted",
+                                            message=f"User '{current_user_id}' accepted {duty_type_singular.lower()} '{duty_name}' (ID: {assign_id})",
+                                            affected_item=assign_id,
+                                            username=current_user_id,
+                                            history_file_path=history_file_path
+                                        )
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed to save acceptance for {duty_type_singular.lower()}.")
+                                else:
+                                    st.error(f"Assignment '{assign_id}' not found for user '{current_user_id}'. Please refresh.")
+                                    # Potentially st.rerun() or just let the user see the error
+                        with b_col2:
+                            if st.button("❌ Decline", key=f"decline_{button_key_prefix}", use_container_width=True):
+                                current_assignments_state = st.session_state.get("assignments", {})
+                                if current_user_id in current_assignments_state and \
+                                   assign_id in current_assignments_state[current_user_id]:
+                                    current_assignments_state[current_user_id][assign_id]['status'] = 'declined'
+                                    if save_assignments(current_assignments_state, assignments_file_path):
+                                        st.warning(f"{duty_type_singular} '{duty_name}' declined.")
+                                        log_into_history(
+                                            event_type=f"{duty_type_singular.lower()}_declined",
+                                            message=f"User '{current_user_id}' declined {duty_type_singular.lower()} '{duty_name}' (ID: {assign_id})",
+                                            affected_item=assign_id,
+                                            username=current_user_id,
+                                            history_file_path=history_file_path
+                                        )
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed to save decline for {duty_type_singular.lower()}.")
+                                else:
+                                    st.error(f"Assignment '{assign_id}' not found for user '{current_user_id}'. Please refresh.")
+
+                    elif show_buttons == 'complete':
+                        if st.button(f"🏁 Mark as Complete", key=f"complete_{button_key_prefix}", use_container_width=True):
+                            current_assignments_state = st.session_state.get("assignments", {})
+                            if current_user_id in current_assignments_state and \
+                               assign_id in current_assignments_state[current_user_id]:
+                                current_assignments_state[current_user_id][assign_id]['status'] = 'awaiting approval'
+                                if save_assignments(current_assignments_state, assignments_file_path):
+                                    st.success(f"{duty_type_singular} '{duty_name}' submitted for approval!")
+                                    st.balloons()
+                                    log_into_history(
+                                        event_type=f"{duty_type_singular.lower()}_submitted",
+                                        message=f"User '{current_user_id}' submitted {duty_type_singular.lower()} '{duty_name}' (ID: {assign_id}) for approval",
+                                        affected_item=assign_id,
+                                        username=current_user_id,
+                                        history_file_path=history_file_path
+                                    )
+                                    st.rerun()
+                                else:
+                                    st.error(f"Failed to submit {duty_type_singular.lower()} for approval.")
+                            else:
+                                st.error(f"Assignment '{assign_id}' not found for user '{current_user_id}'. Please refresh.")
+
+                    elif show_buttons == 'awaiting':
+                        st.info("⏳ Awaiting Parent Approval")
+
+                    elif show_buttons == 'completed':
+                        st.success("✅ Completed!")
+                        completed_timestamp = assign_data.get('completed_timestamp')
+                        if completed_timestamp:
+                            try:
+                                # Example: Assuming ISO format timestamp
+                                completed_dt = datetime.datetime.fromisoformat(str(completed_timestamp))
+                                st.caption(f"Completed on: {completed_dt.strftime('%Y-%m-%d %H:%M')}")
+                            except ValueError:
+                                st.caption(f"Completed: {completed_timestamp}") # Show raw if parsing fails
+
+                    elif show_buttons == 'declined':
+                        st.error("❌ Declined")
+                        # You might want to show a reason or timestamp if available
+                        declined_timestamp = assign_data.get('declined_timestamp') # If you store this
+                        if declined_timestamp:
+                             st.caption(f"Declined on: {declined_timestamp}")
+
+
+                col_idx += 1
+
+def display_tasks(task_dict, section_title, empty_message, show_buttons=None):
+    task_templates = st.session_state.get("task_templates")
+    st.subheader(section_title)
+    if not task_dict:
+        st.info(empty_message)
+        return
+
+    with st.container(border=True):
+        num_tasks = len(task_dict)
+        max_cols = 3
+        num_cols = min(num_tasks, max_cols)
+        cols = st.columns(num_cols)
+        col_index = 0
+
+        for assign_id, assign_data in task_dict.items():
+            task_id = assign_data.get('task_id') or assign_data.get('template_id')
+            task_template = task_templates.get(task_id)
+            if not task_template:
+                st.warning(f"Task template {task_id} not found for assignment {assign_id}. Skipping.")
+                continue
+
+            with cols[col_index % num_cols]:
+                with st.container(border=True):
+                    st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                    st.caption(task_template.get('description', 'No description.'))
+                    st.markdown(f"**Points:** {task_template.get('points', 0):,}")
+
+                    # --- Action Buttons (Conditionally Displayed) ---
+                    if show_buttons == 'accept_decline':
+                        b_col1, b_col2 = st.columns(2)
+                        with b_col1:
+                            if st.button("✅ Accept", key=f"accept_{assign_id}", use_container_width=True):
+                                # Get state
+                                current_assignments_state = st.session_state["assignments"]
+                                # Modify state
+                                if username in current_assignments_state and assign_id in current_assignments_state[username]:
+                                    current_assignments_state[username][assign_id]['status'] = 'active'
+                                    # Save state
+                                    if utils.save_assignments(current_assignments_state, ASSIGNMENTS_FILE):
+                                        st.success(f"Task '{task_template.get('name')}' accepted!")
+                                        
+                                        # --- Add History Logging ---
+                                        try:
+                                            accept_msg = f"User '{kid_username}' accepted standalone task '{task_name}'"
+                                            utils.log_into_history(
+                                                event_type="standalone_accepted",
+                                                message=accept_msg,
+                                                affected_item=assign_id,
+                                                username=kid_username # Kid performed the action
+                                            )
+                                        except Exception as e:
+                                            st.warning(f"Could not write to history log: {e}")
+                                        
+                                        
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to save acceptance.")
+                                else:
+                                    st.error("Assignment not found. Refreshing.")
+                                    st.rerun()
+
+                        with b_col2:
+                            if st.button("❌ Decline", key=f"decline_{assign_id}", use_container_width=True):
+                                    # Get state
+                                current_assignments_state = st.session_state["assignments"]
+                                # Modify state
+                                if username in current_assignments_state and assign_id in current_assignments_state[username]:
+                                    current_assignments_state[username][assign_id]['status'] = 'declined'
+                                    # Save state
+                                    if utils.save_assignments(current_assignments_state, ASSIGNMENTS_FILE):
+                                        st.warning(f"Task '{task_template.get('name')}' declined.")
+                                        
+                                        # --- Add History Logging ---
+                                        try:
+                                            decline_msg = f"User '{kid_username}' declined standalone task '{task_name}'"
+                                            utils.log_into_history(
+                                                event_type="standalone_declined",
+                                                message=decline_msg,
+                                                affected_item=assign_id,
+                                                username=kid_username # Kid performed the action
+                                            )
+                                        except Exception as e:
+                                            st.warning(f"Could not write to history log: {e}")
+                                        # --- End History Logging ---
+
+                                        
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to save decline.")
+                                else:
+                                    st.error("Assignment not found. Refreshing.")
+                                    st.rerun()
+
+                    elif show_buttons == 'complete':
+                        if st.button("🏁 Mark as Complete", key=f"complete_{assign_id}", use_container_width=True):
+                            # Get state
+                            current_assignments_state = st.session_state["assignments"]
+                            # Modify state
+                            if username in current_assignments_state and assign_id in current_assignments_state[username]:
+                                current_assignments_state[username][assign_id]['status'] = 'awaiting approval'
+                                    # Save state
+                                if utils.save_assignments(current_assignments_state, ASSIGNMENTS_FILE):
+                                    st.success(f"Task '{task_template.get('name')}' submitted for approval!")
+                                    st.balloons()
+                                    
+                                    # --- Add History Logging ---
+                                    try:
+                                        submit_msg = f"User '{kid_username}' submitted standalone task '{task_name}' for approval"
+                                        utils.log_into_history(
+                                            event_type="standalone_submitted",
+                                            message=submit_msg,
+                                            affected_item=assign_id,
+                                            username=kid_username # Kid performed the action
+                                        )
+                                    except Exception as e:
+                                        st.warning(f"Could not write to history log: {e}")
+                                    # --- End History Logging ---
+                                    
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to submit task for approval.")
+                            else:
+                                st.error("Assignment not found. Refreshing.")
+                                st.rerun()
+
+                    elif show_buttons == 'awaiting':
+                            st.info("⏳ Awaiting Parent Approval") # Indicate status clearly
+
+                    elif show_buttons == 'completed':
+                            st.success("✅ Completed!") # Indicate status clearly
+                            # Optional: Add completion date if stored
+                            completion_date = assign_data.get('completed_timestamp')
+                            if completion_date:
+                                # You might need to parse the timestamp if it's stored as a string
+                                # Example: completed_dt = datetime.datetime.fromisoformat(completion_date)
+                                # st.caption(f"Completed on: {completed_dt.strftime('%Y-%m-%d %H:%M')}")
+                                pass # Add parsing/formatting as needed
+
+                    elif show_buttons == 'declined':
+                            st.error("❌ Declined")
+
+            col_index += 1
+
 # --- Quest Template Functions (Assumed Existing from previous examples) ---
 def load_quest_templates(filename):
     # ... (keep existing implementation, ensure it returns {} or None on error) ...
@@ -293,7 +646,6 @@ def save_quest_templates(data, filename):
     except Exception as e:
         st.error(f"❌ An unexpected error occurred saving quest templates: {e}")
         return False
-
 
 # --- Mission Template Functions ---
 def load_mission_templates(filename):
@@ -365,7 +717,6 @@ def generate_assignment_id(quest_id):
     short_quest_id = quest_id.replace("quest_", "")[:10]
     return f"assign_{timestamp}_{short_quest_id}"
 
-
 def log_into_history(event_type, message, affected_item, username):
     safe_filename = f"{username}_history.json"
     HISTORY_FOLDER = Path("user_history")
@@ -408,6 +759,7 @@ def log_into_history(event_type, message, affected_item, username):
                 try:
                     with open(history_file_path, 'w', encoding='utf-8') as f:
                         json.dump(current_history, f, indent=4)
+                        return True
                 except OSError as e:
                     st.warning(f"Could not write history file to log mission creation: {e}")
             else:

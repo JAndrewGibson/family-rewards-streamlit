@@ -1,194 +1,59 @@
 import streamlit as st
 import utils # Import shared utility functions
-# import time # No longer needed for sleep
-import datetime # Needed for acceptance logic maybe? - Keep if used elsewhere
-import auth # Assuming this handles authentication setup
+from pathlib import Path
+from datetime import datetime
+import time
 
 # --- Page Configuration ---
-st.set_page_config(page_title="Standalone Tasks", page_icon="✔️", layout="wide") # Use wide layout for better column display
+st.set_page_config(page_title="Standalone Tasks", page_icon="✔️", layout="wide")
 
 # --- Authentication Check ---
 if st.session_state.get('authentication_status') is not True:
-    st.switch_page("home.py")
+    st.switch_page("Home.py")
 
 
-# --- Load Data from Session State (Ensure these are loaded reliably in home.py or login) ---
+# --- Load Data from Session State ---
 username = st.session_state.get("username")
-mission_templates = st.session_state.get("mission_templates") # Keep if needed, though not directly used here
-quest_templates = st.session_state.get("quest_templates")     # Keep if needed
+mission_templates = st.session_state.get("mission_templates")
+quest_templates = st.session_state.get("quest_templates")
 task_templates = st.session_state.get("task_templates")
-# Use 'assignments' as the consistent key for assignment data in session state
 assignments_data = st.session_state.get("assignments")
-points_data = st.session_state.get('points', {}) # Load points data into a variable
-current_points_unformatted = points_data.get(username, 0)
+current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
 current_points = f"{current_points_unformatted:,}"
 
-# File paths needed for saving
+# File paths
 ASSIGNMENTS_FILE = 'assignments.json'
 POINTS_FILE = 'points.json' # Define points file path
 
 # --- Robust Data Loading Checks ---
-error_loading = False
 missing_items = []
 if not username: missing_items.append("Username")
 # if mission_templates is None: missing_items.append("Mission templates") # Uncomment if needed elsewhere
 # if quest_templates is None: missing_items.append("Quest templates") # Uncomment if needed elsewhere
 if task_templates is None: missing_items.append("Task templates")
 if assignments_data is None: missing_items.append("Assignments data")
-if points_data is None: missing_items.append("Points data") # Check points too
+if current_points is None: missing_items.append("Points data") # Check points too
 
 if missing_items:
     st.error(f"❌ Critical data missing from session state: {', '.join(missing_items)}. Please try logging out and back in.")
     st.stop() # Halt execution if essential data is missing
 
 # --- Sidebar ---
-st.sidebar.metric("My Points", current_points)
-if current_points_unformatted == 0:
-    st.sidebar.caption("Earn points by completing tasks!")
-
+st.sidebar.metric("My Points", current_points, label_visibility="visible", border=True)
 st.sidebar.divider()
-
-# Logout Button - Ensure 'authenticator' is loaded correctly in your main app/login flow
+if st.sidebar.button(label = "RELOAD"):
+    st.session_state['assignments'] = utils.load_assignments(ASSIGNMENTS_FILE)
+    try:
+        assignments_data = st.session_state.get("assignments")
+    except:
+        st.error("Failed to reload assignment data")
 if 'authenticator' in st.session_state and hasattr(st.session_state['authenticator'], 'logout'):
      st.session_state['authenticator'].logout('Logout', 'sidebar')
 else:
      st.sidebar.warning("Logout functionality not available.")
 
 
-# --- Parent/Admin Approval View ---
-if st.session_state.get('role') in ['parent', 'admin']:
-    st.title("Approve Standalone Tasks")
-    config = st.session_state.get('config') # Ensure config is loaded in session state
-    if not config:
-        st.error("Configuration data missing. Cannot determine children.")
-        st.stop()
-
-    
-    # Make sure username variable holds the PARENT'S username in this context
-    parent_username = st.session_state.get("username")
-    if not parent_username: # Extra check just in case
-        st.error("Parent username not found in session state.")
-        st.stop()
-    
-    
-    parent_config_details = config.get('credentials',{}).get('usernames',{}).get(username,{})
-    parent_children_usernames = parent_config_details.get('children', [])
-
-    if not parent_children_usernames:
-        st.info("No children assigned to this account.")
-    else:
-        tasks_to_approve_found = False
-        for kid in parent_children_usernames:
-            kid_capitalized = kid.title()
-            kid_assignments = assignments_data.get(kid, {})
-            kid_tasks_awaiting = {
-                assign_id: assign_data for assign_id, assign_data in kid_assignments.items()
-                if assign_data.get('status') == 'awaiting approval' and assign_data.get('type') == 'standalone'
-            }
-
-            if kid_tasks_awaiting:
-                tasks_to_approve_found = True
-                with st.expander(f"Tasks Awaiting Approval for {kid_capitalized}", expanded=True):
-                    # Display in columns for better layout if many tasks
-                    num_tasks = len(kid_tasks_awaiting)
-                    max_cols = 3
-                    num_cols = min(num_tasks, max_cols)
-                    cols = st.columns(num_cols)
-                    col_index = 0
-
-                    for assign_id, assign_data in kid_tasks_awaiting.items():
-                        task_id = assign_data.get('task_id') or assign_data.get('template_id')
-                        task_template = task_templates.get(task_id)
-                        if not task_template:
-                             st.warning(f"Task template {task_id} not found for assignment {assign_id}. Skipping.")
-                             continue
-
-                        with cols[col_index % num_cols]:
-                            with st.container(border=True):
-                                task_name = task_template.get('name','Unnamed Task')
-                                task_points = task_template.get('points', 0)
-                                st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
-                                st.caption(task_template.get('description', 'No description.'))
-                                st.markdown(f"**Points:** {task_template.get('points', 0):,}") # Added formatting
-
-                                # Use a unique key prefix for parent approvals
-                                if st.button("✅ Approve & Award Points", key=f"approve_{kid}_{assign_id}", use_container_width=True):
-                                    # 1. Get current state from session_state (which holds the full data)
-                                    current_assignments_state = st.session_state["assignments"]
-                                    current_points_state = st.session_state["points"]
-
-                                    # 2. Modify state
-                                    if kid in current_assignments_state and assign_id in current_assignments_state[kid]:
-                                        current_assignments_state[kid][assign_id]['status'] = 'completed'
-                                        task_points = task_template.get('points', 0)
-                                        current_points_state[kid] = current_points_state.get(kid, 0) + task_points
-
-                                        # 3. Save updated state to persistent storage
-                                        save_assignments_ok = utils.save_assignments(current_assignments_state, ASSIGNMENTS_FILE)
-                                        save_points_ok = utils.save_points(current_points_state, POINTS_FILE)
-
-                                        if save_assignments_ok and save_points_ok:
-                                            # 4. Session state already modified in step 2, no need to reassign
-                                            # 5. Provide Feedback
-                                            st.success(f"Task '{task_template.get('name')}' approved for {kid_capitalized}!")
-                                            st.balloons()
-                                            
-                                            try:
-                                                # Log task approval
-                                                approve_msg = f"Parent '{parent_username}' approved standalone task '{task_name}' for {kid}"
-                                                utils.log_into_history(
-                                                    event_type="standalone_approved",
-                                                    message=approve_msg,
-                                                    affected_item=assign_id,
-                                                    username=parent_username # Parent performed the action
-                                                )
-
-                                                # Log points awarded
-                                                points_msg = f"Parent '{parent_username}' awarded {task_points} points to {kid} for completing task '{task_name}'"
-                                                utils.log_into_history(
-                                                    event_type="points_awarded",
-                                                    message=points_msg,
-                                                    affected_item=kid, # The user receiving points
-                                                    username=parent_username # Parent performed the action
-                                                )
-                                                #Log into child history
-                                                child_message = f"Your guardian '{parent_username}' approved your task '{task_name}' and awarded you {task_points} points!"
-                                                utils.log_into_history(
-                                                    event_type="task_completed",
-                                                    message=child_message,
-                                                    affected_item=task_id, # The user receiving points
-                                                    username=kid # Parent performed the action
-                                                )
-                                            except Exception as e:
-                                                st.warning(f"Could not write to history log: {e}")
-                                            
-                                            
-                                            # 6. Trigger Rerun
-                                            st.rerun()
-                                        else:
-                                            st.error("Failed to save changes. Please check file permissions or data integrity.")
-                                            # Optionally revert changes in session state if save fails
-                                            # Or just let the user retry
-                                    else:
-                                        st.error(f"Assignment {assign_id} for {kid_capitalized} seems to have changed or been removed. Refreshing.")
-                                        st.rerun() # Rerun to show the current actual state
-
-                                # Optional: Add a "Reject" button
-                                # if st.button("❌ Reject Task", key=f"reject_{kid}_{assign_id}", use_container_width=True):
-                                #    # Logic to change status to 'rejected' or back to 'active'
-                                #    # Remember to save assignments and rerun
-
-                        col_index += 1
-            # else: # Optional: Show message if a specific kid has no tasks needing approval
-            #     with st.expander(f"Tasks Awaiting Approval for {kid_capitalized}", expanded=False):
-            #         st.info("No tasks currently awaiting approval.")
-
-        if not tasks_to_approve_found:
-             st.info("No tasks from any assigned children are currently awaiting approval.")
-
-
-# --- Kid/Admin Task Management View ---
-if st.session_state.get('role') in ['kid', 'admin']:
+def kid_task_view():
     st.title("✔️ My Standalone Tasks")
     
     # Get the current user's assignments directly from the loaded data
@@ -248,7 +113,7 @@ if st.session_state.get('role') in ['kid', 'admin']:
                     with st.container(border=True):
                         st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
                         st.caption(task_template.get('description', 'No description.'))
-                        st.markdown(f"**Points:** {task_template.get('points', 0):,}") # Added formatting
+                        st.markdown(f"**Points:** {task_template.get('points', 0):,}")
 
                         # --- Action Buttons (Conditionally Displayed) ---
                         if show_buttons == 'accept_decline':
@@ -316,7 +181,6 @@ if st.session_state.get('role') in ['kid', 'admin']:
                                         st.error("Assignment not found. Refreshing.")
                                         st.rerun()
 
-
                         elif show_buttons == 'complete':
                             if st.button("🏁 Mark as Complete", key=f"complete_{assign_id}", use_container_width=True):
                                 # Get state
@@ -333,7 +197,7 @@ if st.session_state.get('role') in ['kid', 'admin']:
                                         try:
                                             submit_msg = f"User '{kid_username}' submitted standalone task '{task_name}' for approval"
                                             utils.log_into_history(
-                                                event_type="standalone_submitted", # Changed from 'completed' to 'submitted' for clarity
+                                                event_type="standalone_submitted",
                                                 message=submit_msg,
                                                 affected_item=assign_id,
                                                 username=kid_username # Kid performed the action
@@ -362,13 +226,13 @@ if st.session_state.get('role') in ['kid', 'admin']:
                                  # st.caption(f"Completed on: {completed_dt.strftime('%Y-%m-%d %H:%M')}")
                                  pass # Add parsing/formatting as needed
 
-
                         elif show_buttons == 'declined':
-                             st.error("❌ Declined") # Indicate status clearly
-                             # Optional: Add button to re-activate or delete? Depends on desired workflow.
+                             st.error("❌ Declined")
 
                 col_index += 1
-
+    
+    current_child_username = st.session_state.get("username")
+    all_user_assignments = st.session_state.assignments.get(current_child_username, {})
 
     # --- Display Sections using the function ---
     display_tasks(pending_assignments,
@@ -384,23 +248,195 @@ if st.session_state.get('role') in ['kid', 'admin']:
     display_tasks(assignments_awaiting_approval,
                   "⏳ Tasks Awaiting Approval",
                   "No tasks are currently waiting for approval.",
-                  show_buttons='awaiting') # Just show info, no button
+                  show_buttons='awaiting')
 
     display_tasks(completed_assignments,
                   "🏆 Completed Tasks",
                   "You haven't completed any standalone tasks yet.",
-                  show_buttons='completed') # Just show info
+                  show_buttons='completed')
 
-    # Optional: Display Declined Tasks
-    # display_tasks(declined_assignments,
-    #               "👎 Declined Tasks",
-    #               "No tasks have been declined.",
-    #               show_buttons='declined')
+    display_tasks(declined_assignments,
+                   "👎 Declined Tasks",
+                   "No tasks have been declined.",
+                   show_buttons='declined')
 
-# --- Add some space at the bottom ---
-st.markdown("---")
 
-# Optional: Debug view for admins
-# if st.session_state.get('role') == 'admin':
-#     with st.expander("DEBUG: Session State"):
-#         st.write(st.session_state)
+def parental_task_view():
+    st.title("Approve Standalone Tasks")
+    config = st.session_state.get('config') # Ensure config is loaded in session state
+    if not config:
+        st.error("Configuration data missing. Cannot determine children.")
+        st.stop()
+
+    
+    # Make sure username variable holds the PARENT'S username in this context
+    parent_username = st.session_state.get("username")
+    if not parent_username: # Extra check just in case
+        st.error("Parent username not found in session state.")
+        st.stop()
+    
+    
+    parent_config_details = config.get('credentials',{}).get('usernames',{}).get(username,{})
+    parent_children_usernames = parent_config_details.get('children', [])
+
+    if not parent_children_usernames:
+        st.info("No children assigned to this account.")
+    else:
+        tasks_to_approve_found = False
+        for kid in parent_children_usernames:
+            kid_capitalized = kid.title()
+            kid_firstname_capitalized = kid_capitalized.split(maxsplit=1)[0]
+            kid_assignments = assignments_data.get(kid, {})
+            kid_tasks_awaiting = {
+                assign_id: assign_data for assign_id, assign_data in kid_assignments.items()
+                if assign_data.get('status') == 'awaiting approval' and assign_data.get('type') == 'standalone'
+            }
+
+            if kid_tasks_awaiting:
+                tasks_to_approve_found = True
+                with st.expander(f"Tasks Awaiting Approval for {kid_firstname_capitalized}", expanded=True):
+                    # Display in columns for better layout if many tasks
+                    num_tasks = len(kid_tasks_awaiting)
+                    max_cols = 3
+                    num_cols = min(num_tasks, max_cols)
+                    cols = st.columns(num_cols)
+                    col_index = 0
+
+                    for assign_id, assign_data in kid_tasks_awaiting.items():
+                        task_id = assign_data.get('task_id') or assign_data.get('template_id')
+                        task_template = task_templates.get(task_id)
+                        if not task_template:
+                             st.warning(f"Task template {task_id} not found for assignment {assign_id}. Skipping.")
+                             continue
+
+                        with cols[col_index % num_cols]:
+                            with st.container(border=True):
+                                
+                                task_name = task_template.get('name','Unnamed Task')
+                                task_points = task_template.get('points', 0)
+                                st.subheader(f"{task_template.get('emoji','❓')} {task_template.get('name','Unnamed Task')}")
+                                st.caption(task_template.get('description', 'No description.'))
+                                st.markdown(f"**Points:** {task_template.get('points', 0):,}") # Added formatting
+                                #You must define the columns where they will be displayed
+                                cols2 = st.columns([4,4])
+                                if cols2[0].button("✅ Approve & Award Points", key=f"approve_{kid}_{assign_id}", use_container_width=True):
+                                    # 1. Get current state from session_state (which holds the full data)
+                                    current_assignments_state = st.session_state["assignments"]
+                                    current_points_state = st.session_state["points"]
+
+                                    # 2. Modify state
+                                    if kid in current_assignments_state and assign_id in current_assignments_state[kid]:
+                                        current_assignments_state[kid][assign_id]['status'] = 'completed'
+                                        task_points = task_template.get('points', 0)
+                                        current_points_state[kid] = current_points_state.get(kid, 0) + task_points
+
+                                        # 3. Save updated state to persistent storage
+                                        save_assignments_ok = utils.save_assignments(current_assignments_state, ASSIGNMENTS_FILE)
+                                        save_points_ok = utils.save_points(current_points_state, POINTS_FILE)
+
+                                        if save_assignments_ok and save_points_ok:
+                                            # 4. Session state already modified in step 2, no need to reassign
+                                            # 5. Provide Feedback
+                                            st.success(f"Task '{task_template.get('name')}' approved for {kid_firstname_capitalized}!")
+                                            st.balloons()
+                                            
+                                            try:
+                                                # Log task approval
+                                                approve_msg = f"Parent '{parent_username}' approved standalone task '{task_name}' for {kid}"
+                                                utils.log_into_history(
+                                                    event_type="standalone_approved",
+                                                    message=approve_msg,
+                                                    affected_item=assign_id,
+                                                    username=parent_username # Parent performed the action
+                                                )
+
+                                                # Log points awarded
+                                                points_msg = f"Parent '{parent_username}' awarded {task_points} points to {kid} for completing task '{task_name}'"
+                                                utils.log_into_history(
+                                                    event_type="points_awarded",
+                                                    message=points_msg,
+                                                    affected_item=kid, # The user receiving points
+                                                    username=parent_username # Parent performed the action
+                                                )
+                                                #Log into child history
+                                                child_message = f"Your guardian '{parent_username}' approved your task '{task_name}' and awarded you {task_points} points!"
+                                                utils.log_into_history(
+                                                    event_type="task_completed",
+                                                    message=child_message,
+                                                    affected_item=task_id, # The user receiving points
+                                                    username=kid # Parent performed the action
+                                                )
+                                            except Exception as e:
+                                                st.warning(f"Could not write to history log: {e}")
+                                            
+                                            
+                                            # 6. Trigger Rerun
+                                            st.rerun()
+                                        else:
+                                            st.error("Failed to save changes. Please check file permissions or data integrity.")
+                                            # Optionally revert changes in session state if save fails
+                                            # Or just let the user retry
+                                    else:
+                                        st.error(f"Assignment {assign_id} for {kid_firstname_capitalized} seems to have changed or been removed. Refreshing.")
+                                        st.rerun() # Rerun to show the current actual state
+
+                                if cols2[1].button(f"❌ Reject and send back to {kid_firstname_capitalized}", key=f"reject_{kid}_{assign_id}", use_container_width=True):
+                                    current_assignments_state = st.session_state["assignments"]
+                                    
+                                    if kid in current_assignments_state and assign_id in current_assignments_state[kid]:
+                                        current_assignments_state[kid][assign_id]['status'] = 'active'
+                                        save_assignments_ok = utils.save_assignments(current_assignments_state, ASSIGNMENTS_FILE)
+                                        if save_assignments_ok:
+                                            st.success(f"Task '{task_template.get('name')}' sent back to {kid_firstname_capitalized} to try again!")
+                                            
+                                            try:
+                                                # Log task approval
+                                                approve_msg = f"Parent '{parent_username}' rejected standalone task '{task_name}' for {kid}"
+                                                utils.log_into_history(
+                                                    event_type="standalone_rejected",
+                                                    message=approve_msg,
+                                                    affected_item=assign_id,
+                                                    username=parent_username
+                                                )
+
+                                                #Log into child history
+                                                child_message = f"Your guardian '{parent_username}' did not approve your task '{task_name}'!"
+                                                utils.log_into_history(
+                                                    event_type="task_rejected",
+                                                    message=child_message,
+                                                    affected_item=task_id,
+                                                    username=kid
+                                                )
+                                            except Exception as e:
+                                                st.warning(f"Could not write to history log: {e}")
+
+                        col_index += 1
+
+        if not tasks_to_approve_found:
+             st.info("No tasks from any assigned children are currently awaiting approval.")
+
+if st.session_state.get('role') == 'parent':
+    parental_task_view()
+
+# --- Kid/Admin Task Management View ---
+if st.session_state.get('role') == 'kid':
+    kid_task_view()
+
+
+if st.session_state.get('role') == 'admin':
+    view_columns = st.columns([4,4])
+    with view_columns[0]:
+        st.header("Parental View")
+        with st.container(border=True):
+            parental_task_view()
+    with view_columns[1]:
+        st.header("Kid View")
+        with st.container(border=True):
+            kid_task_view()
+    with view_columns[0]:
+        with st.container(border=True):
+            st.subheader(f"Admin view for user: *{username}*") 
+            with st.expander("DEBUG: Session State"):
+                st.write(st.session_state)
+            with st.expander("DEBUG: Assignments Data"):
+                st.write(assignments_data)

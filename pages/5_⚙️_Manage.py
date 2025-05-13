@@ -1,40 +1,70 @@
 import streamlit as st
 import utils # Import shared utility functions
-from datetime import datetime, timezone
+from datetime import datetime
 import time # For assignment ID generation
 from pathlib import Path
 import json
-import os
 import pandas as pd
+import pytz
 
 # --- Page Configuration ---
-st.set_page_config(page_title="Manage", page_icon="⚙️")
-st.title("⚙️ Manage")
+st.set_page_config(
+       page_title="Manage",
+       page_icon="⚙️",
+       layout="wide",  # Set the layout (wide or centered)
+       #initial_sidebar_state="expanded",  # Set the initial sidebar state
+       menu_items={
+           "Get help": "https://www.example.com",  # Add a custom menu item
+           "About" : "Test text"
+       }
+   )
+
+hide_menu_style = """
+    <style>
+    .st-emotion-cache-15yi2hn.eecegii10 [data-testid="stMarkdownContainer"] p:last-child {
+  display: none !important;
+}
+    </style>
+    """
+st.markdown(hide_menu_style, unsafe_allow_html=True)
 
 # --- Authentication & Authorization Check ---
 if st.session_state.get('authentication_status') is not True:
     st.switch_page("home.py")
 
-# --- Constants for filenames ---
+
+# --- Load Data from Session State ---
+username = st.session_state.get("username")
+config = st.session_state.get("config")
+mission_templates = st.session_state.get("mission_templates")
+quest_templates = st.session_state.get("quest_templates")
+task_templates = st.session_state.get("task_templates")
+assignments_data = st.session_state.get("assignments")
+current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
+current_points = f"{current_points_unformatted:,}"
+name = st.session_state['name']
+
+
+# File paths
 TASKS_TEMPLATE_FILE = 'tasks.json'
 QUESTS_TEMPLATE_FILE = 'quests.json'
 MISSIONS_TEMPLATE_FILE = 'missions.json'
 ASSIGNED_QUESTS_FILE = 'assignments.json'
 HISTORY_FOLDER = Path("user_history")
 HISTORY_FOLDER.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = 'config.yaml'
+ALL_TIMEZONES = sorted(pytz.all_timezones)
 
 
 # --- Load Data (Load fresh for management/assignment actions) ---
-# Use .get() from session state for config, but load templates/assignments fresh
-config = st.session_state.get("config")
-username = st.session_state.get("username") # Logged-in parent's username
+user_config_details = config.get('credentials',{}).get('usernames',{}).get(username,{})
+user_timezone = user_config_details.get('timezone', [])
 name = st.session_state['name']
 
 if not config or not username or not name:
      st.error("User configuration not found in session state. Please log in again.")
      time.sleep(2)
      st.switch_page("home.py")
-
 
 
 # --- Load Existing Templates (Load fresh each time or use session state carefully) ---
@@ -46,25 +76,16 @@ firstname = utils.first_name(name)
 safe_filename = f"{username}_history.json"
 history_file_path = HISTORY_FOLDER / safe_filename
 
-current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
-current_points = f"{current_points_unformatted:,}"
-st.sidebar.metric("My Points", current_points)
-st.sidebar.divider()
+with st.sidebar:
+    current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
+    current_points = f"{current_points_unformatted:,}"
+    st.metric("My Points", current_points, label_visibility="visible", border=True)
+    st.divider()
 
 if 'authenticator' in st.session_state:
          st.session_state['authenticator'].logout('Logout', 'sidebar')
 else:
         st.sidebar.error("Authenticator not found.")
-
-def get_item_display_name(item_id, q_templates, t_templates):
-    """Gets a display name for a quest or task ID."""
-    quest_info = q_templates.get(item_id)
-    if quest_info:
-        return f"Quest: {quest_info.get('name', item_id)} ({quest_info.get('quest_combined_points')} pts)"
-    task_info = t_templates.get(item_id)
-    if task_info:
-        return f"Task: {task_info.get('description', item_id)} ({task_info.get('points')} pts)"
-    return item_id # Fallback
 
 # Handle loading errors
 if task_templates is None or quest_templates is None or mission_templates is None or assignments_data is None:
@@ -72,9 +93,254 @@ if task_templates is None or quest_templates is None or mission_templates is Non
     st.stop()
 
 
+def manage_kid_view(user_timezone):
+    tab_list = [
+    "🗝️ History",
+    "🧑🏽‍💻Code",
+    "⚙️User Settings",
+    ]
+    tab1, tab2, tab3 = st.tabs(tab_list)
+    
+    with tab1:
+         if st.session_state.get('role'):
+            st.header("EVENT HISTORY") # Moved header inside the check for consistency
 
-# --- PARENT/ADMIN ---
-if st.session_state.get('role') == 'parent' or st.session_state.get('role') == 'admin':
+            # Ensure we have the user's username and timezone
+            if not username:
+                st.warning("Cannot display history: User information not found.")
+            # Ensure the timezone variable exists and is not empty
+            elif not user_timezone:
+                st.warning(f"Cannot display history in local time for user '{username}': User timezone not set.")
+                user_timezone = "UTC"
+                st.info("Displaying timestamps in UTC.")
+            else:
+                try:
+                    # Construct the path to the user's history file
+                    safe_filename = f"{username}_history.json"
+                    history_file_path = HISTORY_FOLDER / safe_filename
+
+                    # Check if the history file exists
+                    if history_file_path.is_file():
+                        # Read the content of the history file
+                        with open(history_file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+
+                        # Check if the file is empty before trying to parse JSON
+                        if not content:
+                            st.info("No history events recorded yet.")
+                        else:
+                            # Parse the JSON data
+                            history_data = json.loads(content)
+
+                            # Check if the loaded data is a list (expected format)
+                            if not isinstance(history_data, list):
+                                st.error("History file format is incorrect. Expected a list of events.")
+                                print(f"Error: History file {history_file_path} is not a list.") # Server log
+                            # Check if the list is empty
+                            elif not history_data:
+                                st.info("No history events recorded yet.")
+                            else:
+                                # --- Convert to Pandas DataFrame ---
+                                df_history = pd.DataFrame(history_data)
+
+                                # --- Data Cleaning and Formatting ---
+
+                                # Check if 'timestamp' column exists before processing
+                                if 'timestamp' in df_history.columns:
+
+                                    # 1. Convert timestamp string to datetime objects (make them UTC aware)
+                                    #    errors='coerce' turns unparseable strings/None into NaT (Not a Time)
+                                    #    utc=True ensures they are treated as UTC if no offset was present (though yours have it)
+                                    df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce', utc=True)
+
+                                    # --- *** ADD TIMEZONE CONVERSION HERE *** ---
+                                    try:
+                                        # 2. Convert the UTC datetime objects to the user's local timezone
+                                        #    This operation only works on valid datetime objects (not NaT)
+                                        #    Use .loc to avoid SettingWithCopyWarning if df_history is a slice
+                                        valid_timestamps = df_history['timestamp'].notna()
+                                        df_history.loc[valid_timestamps, 'timestamp'] = df_history.loc[valid_timestamps, 'timestamp'].dt.tz_convert(user_timezone)
+                                        # Now the 'timestamp' column holds timezone-aware datetimes localized to user_timezone
+
+                                    except Exception as tz_error:
+                                        st.error(f"Could not convert timestamps to timezone '{user_timezone}'. Displaying in UTC. Error: {tz_error}")
+                                        print(f"Timezone conversion error for user {username}, tz {user_timezone}: {tz_error}")
+                                        # If conversion fails, timestamps remain UTC (from pd.to_datetime)
+
+
+                                    # 3. Sort by timestamp (most recent first). NaT values will be sorted last.
+                                    df_history = df_history.sort_values(by='timestamp', ascending=False, na_position='last')
+
+                                    # 4. Select and reorder columns for display
+                                    display_columns = ['timestamp', 'event_type', 'message', 'affected_item', 'user']
+                                    existing_columns = [col for col in display_columns if col in df_history.columns]
+                                    df_display = df_history[existing_columns].copy() # Create a copy for display modification
+                                    
+                                    if 'timestamp' in df_display.columns:
+                                        df_display['timestamp'] = df_display['timestamp'].dt.strftime('%d/%m/%y %H:%M:%S')
+                                        df_display['timestamp'] = df_display['timestamp'].fillna("N/A")
+
+
+                                    # --- Display the DataFrame ---
+                                    st.dataframe(
+                                        df_display,
+                                        use_container_width=True, # Make table use full tab width
+                                        hide_index=True # Hide the default numerical index
+                                    )
+                                else:
+                                    # Handle case where 'timestamp' column is missing entirely
+                                    st.warning("History data is missing the 'timestamp' column.")
+                                    # Display remaining data if useful
+                                    df_display = df_history[[col for col in df_history.columns if col != 'timestamp']]
+                                    if not df_display.empty:
+                                        st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+
+                    else:
+                        # File doesn't exist for this user
+                        st.info(f"No history found for user '{username}'.") # Use username variable
+
+                except json.JSONDecodeError:
+                    st.error("Failed to read history file: Invalid format.")
+                    print(f"Error: JSONDecodeError reading {history_file_path}") # Server log
+                except FileNotFoundError:
+                    # This case is handled by the is_file() check above, but good practice
+                    st.info(f"No history found for user '{username}'.") # Use username variable
+                except OSError as e:
+                    st.error(f"An error occurred while accessing history file: {e}")
+                    print(f"Error: OSError accessing {history_file_path}: {e}") # Server log
+                except Exception as e:
+                    st.error(f"An unexpected error occurred while displaying history: {e}")
+                    # Use username in server log for clarity
+                    print(f"Error: Unexpected error displaying history for {username}: {e}") # Server log
+    
+    with tab2:
+        st.header("Hey, how'd you build this? 🤔")
+        st.write("Curious how I bulit this web application?")
+        st.write("This entire webpage was created by me (yes, WITHOUT the use of AI) - including all of the logic behind the scenes that makes it work.")
+        st.markdown(f"You can view all of the code that makes it run on my github by [clicking here.](https://github.com/JAndrewGibson/family-rewards-streamlit)")
+        st.write("Here's how this small portion of the website looks in the code:")
+        st.code('''           
+    if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
+        st.header("Hey, how'd you build this?")
+        st.write("Curious how I bulit this web application?")
+        st.write("This entire webpage was created by me (yes, WITHOUT the use of AI) - including all of the logic behind the scenes that makes it work.")
+        st.markdown(f"You can view all of the code that makes it run on my github by [clicking here.](https://github.com/JAndrewGibson/family-rewards-streamlit)")
+        st.write("Here's how this small portion of the website looks in the code:")         
+                ''')
+        
+        st.write("If I'm just writing text or a link, it's pretty easy.")
+        st.write("When it get to programming the logic - it gets a little more complex. But don't worry - there's a mission for learning all that.")
+         
+    with tab3:
+        if st.session_state.get('role') == 'kid':
+            st.header(f"⚙️{firstname}'s User Settings")
+
+            st.subheader(f"Settings for {firstname}")
+
+            # --- Timezone Setting ---
+            st.divider()
+            st.markdown("#### Timezone")
+
+            # Make sure config loaded successfully and has the expected structure
+            if config and 'credentials' in config and 'usernames' in config['credentials']:
+                user_credentials = config['credentials']['usernames']
+
+                if username in user_credentials:
+                    user_data = user_credentials[username]
+                    # Get current timezone, default to UTC if not set (optional)
+                    current_timezone = user_data.get("timezone", "UTC")
+
+                    # Find the index of the current timezone in the list for dropdown default
+                    try:
+                        # Ensure the current timezone is actually in our list
+                        if current_timezone not in ALL_TIMEZONES:
+                            # If not, add it temporarily so it can be selected, warn user
+                            st.warning(f"Saved timezone '{current_timezone}' is not a standard IANA zone. Adding it to the list.")
+                            ALL_TIMEZONES.insert(0, current_timezone) # Add to beginning
+                            current_tz_index = 0
+                        else:
+                            current_tz_index = ALL_TIMEZONES.index(current_timezone)
+
+                    except ValueError:
+                        # This shouldn't happen if the check above works, but as a fallback
+                        st.error(f"Could not find index for current timezone '{current_timezone}'. Defaulting selection.")
+                        current_tz_index = ALL_TIMEZONES.index("UTC") # Default to UTC index
+
+            # Create the dropdown (selectbox)
+            new_timezone = st.selectbox(
+                "Select your preferred timezone:",
+                options=ALL_TIMEZONES,
+                index=current_tz_index,
+                key="timezone_select",
+                help="I manually set everyone's timezone up, so it should be on the correct one automatically. -Andrew"
+            )
+
+            # Create the save button
+            if st.button("Save Timezone", key="save_tz_button"):
+                        if new_timezone != current_timezone:
+                            # --- Update Logic ---
+                            # Load the config again right before saving to minimize race conditions
+                            latest_config = utils.load_config(CONFIG_PATH)
+                            if latest_config and 'credentials' in latest_config and 'usernames' in latest_config['credentials'] and username in latest_config['credentials']['usernames']:
+                                # Update the timezone for the specific user
+                                latest_config['credentials']['usernames'][username]['timezone'] = new_timezone
+
+                                # Save the modified data back to the file
+                                if utils.save_config(CONFIG_PATH, latest_config):
+                                    st.success(f"Timezone updated to {new_timezone}!")
+                                    # Optional: Update session state if you use it for immediate effect elsewhere
+                                    if 'user_timezone' in st.session_state:
+                                        st.session_state['user_timezone'] = new_timezone
+                                    # Rerun the script to reflect the change immediately in the selectbox default
+                                    st.rerun()
+                                else:
+                                    # save_config would have shown an error
+                                    pass
+                            else:
+                                st.error("Failed to reload configuration before saving. Please try again.")
+
+                        else:
+                            st.info("No changes made to timezone.")
+        
+            if st.button(label="Balloons", key="kid_balloons"):
+                    st.balloons()
+                    time.sleep(.5)
+                    st.balloons()
+                    time.sleep(.5)
+                    st.balloons()
+                    time.sleep(.5)
+                    st.balloons()
+            if st.button(label="Blizzard", key="kid_blizzard"):
+                st.snow()
+                time.sleep(.5)
+                st.snow()
+                time.sleep(.5)
+                st.snow()
+                time.sleep(.5)
+        
+        else:
+            st.header("🤠 Hold it right there cowboy!")
+            st.write("Looks like you're logged in as an Admin. To avoid duplicate rendering - this portion is not shown. Please adjust user settings from parental part of the app.")
+            with st.container(border=True):
+                st.subheader(f"Some very secret admin-only buttons...")
+                if st.button(label="Balloons"):
+                    st.balloons()
+                    time.sleep(.5)
+                    st.balloons()
+                    time.sleep(.5)
+                    st.balloons()
+                    time.sleep(.5)
+                    st.balloons()
+                if st.button(label="Blizzard"):
+                    st.snow()
+                    time.sleep(.5)
+                    st.snow()
+                    time.sleep(.5)
+                    st.snow()
+                    time.sleep(.5)
+
+def manage_parental_view(user_timezone):
     # --- Define Tabs ---
     tab_list = [
         "📝 Tasks",
@@ -82,13 +348,14 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
         "🗺️ Missions",
         "💎 Rewards",
         "🎯 Assign",
-        "🗝️ History"
+        "🗝️ History",
+        "⚙️ User Settings"
     ]
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(tab_list)
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(tab_list)
 
     with tab1:
         st.header("📝 Standalone Task Form")
-        st.write("Define individual tasks.")
+        st.caption("Define individual tasks.")
 
         # Display existing tasks (optional enhancement)
         with st.expander("View Existing Task Templates"):
@@ -103,11 +370,13 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
 
         # Use a form for better state management on creation
         with st.form("new_task_form", clear_on_submit=True):
-            new_task_id = st.text_input("Task ID (must be unique):")
-            new_task_name = st.text_input("Task Name")
-            new_task_desc = st.text_area("Description:")
-            new_task_points = st.number_input("Points:", min_value=0, step=1, value=10)
-            new_task_emoji = st.text_input("Emoji Icon:", max_chars=2)
+            cols4 = st.columns([4,4])
+            new_task_id = cols4[0].text_input("Task ID :",help="Task IDs should be unique - you can name them anything you'd like; I'd recommend naming it (child_task_number)")
+            new_task_name = cols4[1].text_input("Task Name:", help="Doesn't need to be unique - but it will make things a lot easier if it is.")
+            new_task_desc = st.text_area("Description:", help="Description will be shown to the child on what exactly they need to do to mark the task as complete!")
+            cols5 = st.columns([4,4])
+            new_task_points = cols5[0].number_input("Points:", min_value=0, step=1, value=10)
+            new_task_emoji = cols5[1].text_input("Emoji Icon:", help="On a computer? Use Win + . to pick emojis on Windows!", max_chars=2)
 
             submitted_task = st.form_submit_button("Save Task Template")
             if submitted_task:
@@ -139,6 +408,8 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                             st.rerun()
                         else:
                             st.error("Could not log task creation. Please tell Andrew.")
+                            time.sleep(10)
+                            st.rerun()
                         # --- END HISTORY LOGGING FOR TASK CREATION ---
                     else:
                         # Error message handled by save function, remove potentially corrupt data
@@ -166,7 +437,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                     # Add delete button functionality here later if needed
 
         st.divider()
-        st.subheader("Create or Edit Quest Template") # Changed subheader slightly
+        st.subheader("Create New Quest Template") # Changed subheader slightly
 
         # Initialize session state list for tasks in the current quest being built/edited
         if 'current_quest_tasks' not in st.session_state:
@@ -174,14 +445,13 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
 
 
         with st.form("new_quest_form"): # Don't clear on submit automatically
-            st.write("**Quest Details:**")
             cols2 = st.columns([4,4])
-            new_quest_id = cols2[0].text_input("Quest ID (must be unique):", key="quest_form_id")
+            new_quest_id = cols2[0].text_input("Quest ID:", help="Must be unique", key="quest_form_id")
             new_quest_name = cols2[1].text_input("Quest Name:", key="quest_form_name")
             new_quest_desc = st.text_area("Description:", key="quest_form_desc",)
             cols3 = st.columns([4,4])
-            new_quest_emoji = cols3[0].text_input("Emoji Icon:", max_chars=2, key="quest_form_emoji")
-            new_quest_bonus = cols3[1].number_input("Completion Bonus Points:", min_value=0, step=50, value=0, key="quest_form_bonus",)
+            new_quest_emoji = cols3[1].text_input("Emoji Icon:", max_chars=2, key="quest_form_emoji")
+            new_quest_bonus = cols3[0].number_input("Completion Bonus Points:", min_value=0, step=50, value=50, key="quest_form_bonus",)
             total_points = st.session_state.quest_form_bonus
             
             
@@ -326,24 +596,26 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
 
         # Use a single form for the entire mission creation including prerequisites
         with st.form("new_mission_form", clear_on_submit=False):
-            new_mission_id = st.text_input("Mission ID (unique, e.g., 'mission_summer_reading'):",key="new_mission_id")
-            new_mission_name = st.text_input("Mission Name:", key="new_mission_name")
+            cols6 = st.columns([4,4])
+            new_mission_id = cols6[0].text_input("Mission ID (must be unique):",key="new_mission_id")
+            new_mission_name = cols6[1].text_input("Mission Name:", key="new_mission_name")
             new_mission_desc = st.text_area("Description:", key="new_mission_desc")
             new_mission_emoji = st.text_input("Emoji Icon:", max_chars=4, key="new_mission_emoji")
             st.divider()
 
             # --- Select Contained Items ---
             st.markdown("**Select Components for this Mission:**")
-            quest_options_map = {qid: get_item_display_name(qid, quest_templates, task_templates) for qid in quest_templates}
-            selected_quest_ids = st.multiselect(
+            quest_options_map = {qid: utils.get_item_display_name(qid, quest_templates, task_templates) for qid in quest_templates}
+            cols7 = st.columns([4,4])
+            selected_quest_ids = cols7[0].multiselect(
                 "Include Quests:",
                 options=list(quest_options_map.keys()),
                 format_func=lambda qid: quest_options_map[qid],
                 key="mission_quests_select"
             )
 
-            task_options_map = {tid: get_item_display_name(tid, quest_templates, task_templates) for tid in task_templates}
-            selected_task_ids = st.multiselect(
+            task_options_map = {tid: utils.get_item_display_name(tid, quest_templates, task_templates) for tid in task_templates}
+            selected_task_ids = cols7[1].multiselect(
                 "Include Standalone Tasks:",
                 options=list(task_options_map.keys()),
                 format_func=lambda tid: task_options_map[tid],
@@ -353,7 +625,7 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
             # Combine all selected items for prerequisite definition
             all_selected_items = selected_quest_ids + selected_task_ids
             all_selected_items_map = { # Map IDs to display names for dropdown options
-                item_id: get_item_display_name(item_id, quest_templates, task_templates)
+                item_id: utils.get_item_display_name(item_id, quest_templates, task_templates)
                 for item_id in all_selected_items
             }
 
@@ -488,13 +760,13 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                         # Error message is shown by save function
      
     with tab4:
-        st.header("Create rewards!")
+        st.header("💎 Create rewards!")
         with st.form("new_reward_form", clear_on_submit=True):
             new_reward_id = st.text_input("Reward ID")
             new_reward_name = st.text_input("Reward Name")
             new_reward_description = st.text_area("Description:")
             new_reward_points = st.number_input("Points:", min_value=0, step=1, value=0)
-            new_reward_image = st.text_input("Place the URL to the image here!", placeholder="https://fastly.picsum.photos/id/912/200/300.jpg")
+            new_reward_image = st.text_input("Place the URL to the image here!", placeholder="https://picsum.photos/200/300")
             st.caption('''Why can't you upload a photo? Because image hosting is expensive and there are a trillion images on the internet which you can use that are already hosted. 😅 AI generate one and upload it to an image hosting site if you really want a custom image.''')
             submitted_reward = st.form_submit_button("Save Reward")
     
@@ -654,11 +926,18 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
     
     with tab6:
         if st.session_state.get('role'):
-            st.header("EVENT HISTORY") # Moved header inside the check for consistency
+            st.header("History Logs") # Moved header inside the check for consistency
 
-            # Ensure we have the user's firstname
+            # Ensure we have the user's username and timezone
             if not username:
                 st.warning("Cannot display history: User information not found.")
+            # Ensure the timezone variable exists and is not empty
+            elif not user_timezone:
+                st.warning(f"Cannot display history in local time for user '{username}': User timezone not set.")
+                # Decide how to proceed: Display in UTC? Show an error?
+                # Here we'll default to UTC if not set, or you could stop.
+                user_timezone = "UTC" # Fallback or handle error differently
+                st.info("Displaying timestamps in UTC.")
             else:
                 try:
                     # Construct the path to the user's history file
@@ -689,152 +968,169 @@ if st.session_state.get('role') == 'parent' or st.session_state.get('role') == '
                                 # --- Convert to Pandas DataFrame ---
                                 df_history = pd.DataFrame(history_data)
 
-                                # --- Optional: Data Cleaning and Formatting ---
+                                # --- Data Cleaning and Formatting ---
 
-                                # 1. Convert timestamp string to datetime objects (optional but good practice)
-                                #    Errors='coerce' will turn unparseable timestamps into NaT (Not a Time)
+                                # Check if 'timestamp' column exists before processing
                                 if 'timestamp' in df_history.columns:
-                                    df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce')
 
-                                # 2. Sort by timestamp (most recent first)
-                                if 'timestamp' in df_history.columns:
-                                    df_history = df_history.sort_values(by='timestamp', ascending=False)
+                                    # 1. Convert timestamp string to datetime objects (make them UTC aware)
+                                    #    errors='coerce' turns unparseable strings/None into NaT (Not a Time)
+                                    #    utc=True ensures they are treated as UTC if no offset was present (though yours have it)
+                                    df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce', utc=True)
 
-                                # 3. Select and reorder columns for display (adjust as needed)
-                                #    Include all likely columns; Pandas handles missing ones with NaN/None
-                                display_columns = ['timestamp', 'event_type', 'message', 'affected_item', 'user']
-                                # Filter to keep only columns that actually exist in the DataFrame
-                                existing_columns = [col for col in display_columns if col in df_history.columns]
-                                df_display = df_history[existing_columns]
+                                    # --- *** ADD TIMEZONE CONVERSION HERE *** ---
+                                    try:
+                                        # 2. Convert the UTC datetime objects to the user's local timezone
+                                        #    This operation only works on valid datetime objects (not NaT)
+                                        #    Use .loc to avoid SettingWithCopyWarning if df_history is a slice
+                                        valid_timestamps = df_history['timestamp'].notna()
+                                        df_history.loc[valid_timestamps, 'timestamp'] = df_history.loc[valid_timestamps, 'timestamp'].dt.tz_convert(user_timezone)
+                                        # Now the 'timestamp' column holds timezone-aware datetimes localized to user_timezone
 
-                                # --- Display the DataFrame ---
-                                st.dataframe(
-                                    df_display,
-                                    use_container_width=True, # Make table use full tab width
-                                    hide_index=True # Hide the default numerical index
-                                    )
-                                # Alternatively, use st.write(df_display) for a static table
+                                    except Exception as tz_error:
+                                        st.error(f"Could not convert timestamps to timezone '{user_timezone}'. Displaying in UTC. Error: {tz_error}")
+                                        print(f"Timezone conversion error for user {username}, tz {user_timezone}: {tz_error}")
+                                        # If conversion fails, timestamps remain UTC (from pd.to_datetime)
 
-                    else:
-                        # File doesn't exist for this user
-                        st.info(f"No history found for user '{firstname}'.")
 
-                except json.JSONDecodeError:
-                    st.error("Failed to read history file: Invalid format.")
-                    print(f"Error: JSONDecodeError reading {history_file_path}") # Server log
-                except FileNotFoundError:
-                    # This case is handled by the is_file() check above, but good practice
-                    st.info(f"No history found for user '{firstname}'.")
-                except OSError as e:
-                    st.error(f"An error occurred while accessing history file: {e}")
-                    print(f"Error: OSError accessing {history_file_path}: {e}") # Server log
-                except Exception as e:
-                    st.error(f"An unexpected error occurred while displaying history: {e}")
-                    print(f"Error: Unexpected error displaying history for {firstname}: {e}") # Server log
+                                    # 3. Sort by timestamp (most recent first). NaT values will be sorted last.
+                                    df_history = df_history.sort_values(by='timestamp', ascending=False, na_position='last')
 
+                                    # 4. Select and reorder columns for display
+                                    display_columns = ['timestamp', 'event_type', 'message', 'affected_item', 'user']
+                                    existing_columns = [col for col in display_columns if col in df_history.columns]
+                                    df_display = df_history[existing_columns].copy() # Create a copy for display modification
                                     
-# --- KID/ADMIN ---
-if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
-    tab_list = [
-    "🗝️ History",
-    "🧑🏽‍💻Code",
-    ]
-    tab1, tab2 = st.tabs(tab_list)
-    
-    with tab1:
-         if st.session_state.get('role'):
-            st.header("EVENT HISTORY") # Moved header inside the check for consistency
+                                    if 'timestamp' in df_display.columns:
+                                        df_display['timestamp'] = df_display['timestamp'].dt.strftime('%d/%m/%y %H:%M:%S')
+                                        df_display['timestamp'] = df_display['timestamp'].fillna("N/A")
 
-            # Ensure we have the user's firstname
-            if not firstname:
-                st.warning("Cannot display history: User information not found.")
-            else:
-                try:
-                    # Construct the path to the user's history file
-                    safe_filename = f"{username}_history.json"
-                    history_file_path = HISTORY_FOLDER / safe_filename
 
-                    # Check if the history file exists
-                    if history_file_path.is_file():
-                        # Read the content of the history file
-                        with open(history_file_path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-
-                        # Check if the file is empty before trying to parse JSON
-                        if not content:
-                            st.info("No history events recorded yet.")
-                        else:
-                            # Parse the JSON data
-                            history_data = json.loads(content)
-
-                            # Check if the loaded data is a list (expected format)
-                            if not isinstance(history_data, list):
-                                st.error("History file format is incorrect. Expected a list of events.")
-                                print(f"Error: History file {history_file_path} is not a list.") # Server log
-                            # Check if the list is empty
-                            elif not history_data:
-                                st.info("No history events recorded yet.")
-                            else:
-                                # --- Convert to Pandas DataFrame ---
-                                df_history = pd.DataFrame(history_data)
-
-                                # --- Optional: Data Cleaning and Formatting ---
-
-                                # 1. Convert timestamp string to datetime objects (optional but good practice)
-                                #    Errors='coerce' will turn unparseable timestamps into NaT (Not a Time)
-                                if 'timestamp' in df_history.columns:
-                                    df_history['timestamp'] = pd.to_datetime(df_history['timestamp'], errors='coerce')
-
-                                # 2. Sort by timestamp (most recent first)
-                                if 'timestamp' in df_history.columns:
-                                    df_history = df_history.sort_values(by='timestamp', ascending=False)
-
-                                # 3. Select and reorder columns for display (adjust as needed)
-                                #    Include all likely columns; Pandas handles missing ones with NaN/None
-                                display_columns = ['timestamp', 'event_type', 'message', 'affected_item', 'user']
-                                # Filter to keep only columns that actually exist in the DataFrame
-                                existing_columns = [col for col in display_columns if col in df_history.columns]
-                                df_display = df_history[existing_columns]
-
-                                # --- Display the DataFrame ---
-                                st.dataframe(
-                                    df_display,
-                                    use_container_width=True, # Make table use full tab width
-                                    hide_index=True # Hide the default numerical index
+                                    # --- Display the DataFrame ---
+                                    st.dataframe(
+                                        df_display,
+                                        use_container_width=True, # Make table use full tab width
+                                        hide_index=True # Hide the default numerical index
                                     )
-                                # Alternatively, use st.write(df_display) for a static table
+                                else:
+                                    # Handle case where 'timestamp' column is missing entirely
+                                    st.warning("History data is missing the 'timestamp' column.")
+                                    # Display remaining data if useful
+                                    df_display = df_history[[col for col in df_history.columns if col != 'timestamp']]
+                                    if not df_display.empty:
+                                        st.dataframe(df_display, use_container_width=True, hide_index=True)
+
 
                     else:
                         # File doesn't exist for this user
-                        st.info(f"No history found for user '{firstname}'.")
+                        st.info(f"No history found for user '{username}'.") # Use username variable
 
                 except json.JSONDecodeError:
                     st.error("Failed to read history file: Invalid format.")
                     print(f"Error: JSONDecodeError reading {history_file_path}") # Server log
                 except FileNotFoundError:
                     # This case is handled by the is_file() check above, but good practice
-                    st.info(f"No history found for user '{firstname}'.")
+                    st.info(f"No history found for user '{username}'.") # Use username variable
                 except OSError as e:
                     st.error(f"An error occurred while accessing history file: {e}")
                     print(f"Error: OSError accessing {history_file_path}: {e}") # Server log
                 except Exception as e:
                     st.error(f"An unexpected error occurred while displaying history: {e}")
-                    print(f"Error: Unexpected error displaying history for {firstname}: {e}") # Server log
-    
-    with tab2:
-        st.header("Hey, how'd you build this? 🤔")
-        st.write("Curious how I bulit this web application?")
-        st.write("This entire webpage was created by me (yes, WITHOUT the use of AI) - including all of the logic behind the scenes that makes it work.")
-        st.markdown(f"You can view all of the code that makes it run on my github by [clicking here.](https://github.com/JAndrewGibson/family-rewards-streamlit)")
-        st.write("Here's how this small portion of the website looks in the code:")
-        st.code('''           
-    if st.session_state.get('role') == 'kid' or st.session_state.get('role') == 'admin':
-        st.header("Hey, how'd you build this?")
-        st.write("Curious how I bulit this web application?")
-        st.write("This entire webpage was created by me (yes, WITHOUT the use of AI) - including all of the logic behind the scenes that makes it work.")
-        st.markdown(f"You can view all of the code that makes it run on my github by [clicking here.](https://github.com/JAndrewGibson/family-rewards-streamlit)")
-        st.write("Here's how this small portion of the website looks in the code:")         
-                ''')
-        
-        st.write("If I'm just writing text or a link, it's pretty easy.")
-        st.write("When it get to programming the logic - it gets a little more complex. But don't worry - there's a mission for learning all that.")
+                    # Use username in server log for clarity
+                    print(f"Error: Unexpected error displaying history for {username}: {e}") # Server log
+
+
+
+    with tab7:
+        st.header(f"⚙️{firstname}'s User Settings")
+
+        st.subheader(f"Settings for {firstname}")
+        st.text_input(label="Man, I wish the settings page had the ability to...")
+        # --- Timezone Setting ---
+        st.divider()
+        st.markdown("#### Timezone")
+
+        # Make sure config loaded successfully and has the expected structure
+        if config and 'credentials' in config and 'usernames' in config['credentials']:
+            user_credentials = config['credentials']['usernames']
+
+            if username in user_credentials:
+                user_data = user_credentials[username]
+                # Get current timezone, default to UTC if not set (optional)
+                current_timezone = user_data.get("timezone", "UTC")
+
+                # Find the index of the current timezone in the list for dropdown default
+                try:
+                    # Ensure the current timezone is actually in our list
+                    if current_timezone not in ALL_TIMEZONES:
+                        # If not, add it temporarily so it can be selected, warn user
+                        st.warning(f"Saved timezone '{current_timezone}' is not a standard IANA zone. Adding it to the list.")
+                        ALL_TIMEZONES.insert(0, current_timezone) # Add to beginning
+                        current_tz_index = 0
+                    else:
+                        current_tz_index = ALL_TIMEZONES.index(current_timezone)
+
+                except ValueError:
+                    # This shouldn't happen if the check above works, but as a fallback
+                    st.error(f"Could not find index for current timezone '{current_timezone}'. Defaulting selection.")
+                    current_tz_index = ALL_TIMEZONES.index("UTC") # Default to UTC index
+
+                # Create the dropdown (selectbox)
+                new_timezone = st.selectbox(
+                    "Select your preferred timezone:",
+                    options=ALL_TIMEZONES,
+                    index=current_tz_index,
+                    key="timezone_select",
+                    help="I manually set everyone's timezone up, so it should be on the correct one automatically. -Andrew"
+                )
+
+                # Create the save button
+                if st.button("Save Timezone", key="save_tz_button"):
+                    if new_timezone != current_timezone:
+                        # --- Update Logic ---
+                        # Load the config again right before saving to minimize race conditions
+                        latest_config = utils.load_config(CONFIG_PATH)
+                        if latest_config and 'credentials' in latest_config and 'usernames' in latest_config['credentials'] and username in latest_config['credentials']['usernames']:
+                            # Update the timezone for the specific user
+                            latest_config['credentials']['usernames'][username]['timezone'] = new_timezone
+
+                            # Save the modified data back to the file
+                            if utils.save_config(CONFIG_PATH, latest_config):
+                                st.success(f"Timezone updated to {new_timezone}!")
+                                # Optional: Update session state if you use it for immediate effect elsewhere
+                                if 'user_timezone' in st.session_state:
+                                    st.session_state['user_timezone'] = new_timezone
+                                # Rerun the script to reflect the change immediately in the selectbox default
+                                st.rerun()
+                            else:
+                                # save_config would have shown an error
+                                pass
+                        else:
+                            st.error("Failed to reload configuration before saving. Please try again.")
+
+                    else:
+                        st.info("No changes made to timezone.")
+
+# PARENTAL VIEW
+if st.session_state.get('role') == 'parent':
+    manage_parental_view(user_timezone)
+
+# KID VIEW
+if st.session_state.get('role') == 'kid':
+    manage_kid_view(user_timezone)
+                
+# ADMIN VIEW
+if st.session_state.get('role') == 'admin':
+    full_page_columns = st.columns([4,4])
+    with full_page_columns[0]:
+        st.title("Parental View")
+        st.divider()
+        manage_parental_view(user_timezone)
+    with full_page_columns[1]:
+        st.title("Child's View")
+        st.divider()
+        manage_kid_view(user_timezone)
+    with st.container(border=True):
+        st.header("Showing Admin-Only Options:")
+        with st.expander("DEBUG: Session State"):
+            st.write(st.session_state)

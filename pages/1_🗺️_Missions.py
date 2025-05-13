@@ -1,17 +1,13 @@
-# pages/0_🗺️_Missions.py
-
 import streamlit as st
 import utils # Import shared utility functions
 import time
-import datetime # Needed for acceptance logic maybe?
-import auth
 
 # --- Page Configuration ---
-st.set_page_config(page_title="Missions", page_icon="🗺️")
+st.set_page_config(page_title="Missions", page_icon="🗺️", layout="wide")
 
 # --- Authentication Check ---
 if st.session_state.get('authentication_status') is not True:
-    st.switch_page("home.py")
+    st.switch_page("Home.py")
     
 
 # --- Load Data from Session State ---
@@ -23,10 +19,10 @@ assignments_data = st.session_state.get("assignments")
 current_points_unformatted = st.session_state.get('points', {}).get(username, 0)
 current_points = f"{current_points_unformatted:,}"
 
-# File path needed for saving
+# File paths
 ASSIGNMENTS_FILE = 'assignments.json'
 
-# Check if all necessary data is loaded (Using more verbose checks from previous step)
+# Error checking
 error_loading = False
 if not username: st.error("❌ Username not found."); error_loading = True
 if mission_templates is None: st.error("❌ Mission templates missing."); error_loading = True
@@ -35,13 +31,7 @@ if task_templates is None: st.error("❌ Task templates missing."); error_loadin
 if assignments_data is None: st.error("❌ Assignments data missing."); error_loading = True
 if error_loading: st.stop()
 
-
-if current_points == 0:
-    st.sidebar.write('''No points yet! Don't worry, as soon as you earn some points - they'll appear here!
-                     ''')
-else:
-    st.sidebar.metric("My Points", current_points)
-    
+st.sidebar.metric("My Points", current_points, label_visibility="visible", border=True)    
 st.sidebar.divider()
 
 if 'authenticator' in st.session_state:

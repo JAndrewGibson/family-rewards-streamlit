@@ -26,49 +26,150 @@
       "template_id": "task_4",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:43:15.402806",
-      "status": "awaiting approval"
+      "status": "completed"
     },
     "assign_1745300597_standalone": {
       "type": "standalone",
       "template_id": "task_5",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:43:17.908179",
-      "status": "awaiting approval"
+      "status": "completed"
     },
     "assign_1745300600_standalone": {
       "type": "standalone",
       "template_id": "task_6",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:43:20.592388",
-      "status": "awaiting approval"
+      "status": "completed"
     },
     "assign_1745300603_standalone": {
       "type": "standalone",
       "template_id": "task_7",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:43:23.391950",
-      "status": "awaiting approval"
+      "status": "completed"
     },
     "assign_1745300799_standalone": {
       "type": "standalone",
       "template_id": "task_1",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:46:39.896786",
-      "status": "awaiting approval"
+      "status": "completed"
     },
     "assign_1745300801_standalone": {
       "type": "standalone",
       "template_id": "task_1",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:46:41.474460",
-      "status": "awaiting approval"
+      "status": "completed"
     },
     "assign_1745300802_standalone": {
       "type": "standalone",
       "template_id": "task_1",
       "assigned_by": "sara_summers",
       "assigned_on": "2025-04-21T22:46:42.955132",
-      "status": "awaiting approval"
+      "status": "completed"
+    },
+    "assign_1746913837_standalone": {
+      "type": "standalone",
+      "template_id": "task_7",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-10T14:50:37.030123",
+      "status": "completed"
+    },
+    "assign_1746923488_standalone": {
+      "type": "standalone",
+      "template_id": "task_3",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-10T17:31:28.273155",
+      "status": "declined"
+    },
+    "assign_1747004704_standalone": {
+      "type": "standalone",
+      "template_id": "task_8",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-11T16:05:04.019454",
+      "status": "completed"
+    },
+    "assign_1747004710_standalone": {
+      "type": "standalone",
+      "template_id": "task_9",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-11T16:05:10.750655",
+      "status": "completed"
+    },
+    "assign_1747004716_standalone": {
+      "type": "standalone",
+      "template_id": "task_10",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-11T16:05:16.384651",
+      "status": "completed"
+    },
+    "assign_1747009548_1": {
+      "type": "quest",
+      "template_id": "quest_1",
+      "assigned_by": "sara_summers",
+      "assigned_on": "2025-05-11T17:25:48.755485",
+      "status": "completed",
+      "task_status": {
+        "quest_1_task_1": "completed",
+        "quest_1_task_2": "completed",
+        "quest_1_task_3": "completed"
+      }
+    },
+    "assign_1747010254_2": {
+      "type": "quest",
+      "template_id": "quest_2",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-11T17:37:34.560245",
+      "status": "pending_acceptance",
+      "task_status": {
+        "quest_2_task_1": "pending",
+        "quest_2_task_2": "pending",
+        "Quest 2, Task 3": "pending",
+        "quest_2_task_4": "pending"
+      }
+    },
+    "assign_1747010257_3": {
+      "type": "quest",
+      "template_id": "quest_3",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-11T17:37:37.394624",
+      "status": "pending_acceptance",
+      "task_status": {
+        "quest_3_task_1": "pending",
+        "quest_3_task_2": "pending"
+      }
+    },
+    "assign_1747087678_10": {
+      "type": "quest",
+      "template_id": "quest_10",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-12T15:07:58.628147",
+      "status": "pending_acceptance",
+      "task_status": {
+        "quest_10_task_1": "pending",
+        "quest_10_task_2": "pending"
+      }
+    },
+    "assign_1747087682_4": {
+      "type": "quest",
+      "template_id": "quest_4",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-12T15:08:02.324621",
+      "status": "pending_acceptance",
+      "task_status": {
+        "quest_4_task_1": "pending"
+      }
+    }
+  },
+  "samual chavez-jackson": {
+    "assign_1746913791_standalone": {
+      "type": "standalone",
+      "template_id": "task_4",
+      "assigned_by": "andrew",
+      "assigned_on": "2025-05-10T14:49:51.889009",
+      "status": "pending_acceptance"
     }
   }
 }

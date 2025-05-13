@@ -43,5 +43,33 @@
     "points": 10,
     "emoji": "",
     "created_by": "andrew"
+  },
+  "task_8": {
+    "name": "Eighth Task",
+    "description": "This is a description for task 8! This is the eighth task I've made, and I can't believe it's taken all the way until now to create a good looking description for this task. Sometimes tasks will have looooonnnng descriptions!\n\n- Maybe Tasks will have formatted instructions?\n- Maybe They wont...\n- - Maybe they'll have sub-instructions\n- - Maybe they wont....\n\nEither way, tasks can have BIG descriptions. All duties can, and I need to be sure that they are able to be accomadated!",
+    "points": 150000,
+    "emoji": "\ud83e\udd72",
+    "created_by": "andrew"
+  },
+  "task_9": {
+    "name": "Ninth Task",
+    "description": "Maybe another long description for this - maybe not??? Who knows?! This is for diagnosis.",
+    "points": 1000,
+    "emoji": "\u274c",
+    "created_by": "andrew"
+  },
+  "task_10": {
+    "name": "Tenth Task",
+    "description": "Another long description... Maybe this one will be more fun! :D",
+    "points": 15852,
+    "emoji": "\ud83e\udee3",
+    "created_by": "andrew"
+  },
+  "task_11": {
+    "name": "Eleventh Task",
+    "description": "Big, long descriptions and such!!!",
+    "points": 1000,
+    "emoji": "\ud83e\udee3",
+    "created_by": "andrew"
   }
 }
